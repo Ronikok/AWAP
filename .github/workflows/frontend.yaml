@@ -20,7 +20,7 @@ jobs:
         run: echo "IMAGE=${{ secrets.DOCKER_USERNAME }}/awap-frontend:${{ github.sha }}" >> $GITHUB_ENV
 
       - name: Build container image
-        run: docker build -f ./Dockerfile -t ${{ env.IMAGE }} ./frontend
+        run: docker build -f ./Dockerfile -t ${{ env.IMAGE }} .
 
       - name: Log in to registry
         run: echo "${{ secrets.DOCKER_TOKEN }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
@@ -38,4 +38,5 @@ jobs:
       - name: Deploy to Rahti
         run: |
           oc login --token=${{ secrets.RAHTI_TOKEN }} --server=${{ secrets.RAHTI_SERVER }}
+          oc project "${{ secrets.RAHTI_PROJECT }}"
           oc set image deployment/frontend frontend=${{ env.IMAGE }}
