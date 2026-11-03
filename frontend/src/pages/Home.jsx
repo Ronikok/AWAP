@@ -16,6 +16,7 @@ export default function Home() {
       <p>This is the home page content.</p>
       <button onClick={() => handleClick()}>Check Health</button>
       <p>{health.message}</p>
+      <p>CI/CD TEST</p>
     </div>
   );
 }
