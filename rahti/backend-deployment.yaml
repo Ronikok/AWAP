@@ -48,5 +48,5 @@ spec:
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: mysql-secret
+                  name: postgres-secret
                   key: DB_PASSWORD

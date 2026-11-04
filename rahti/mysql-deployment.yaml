@@ -13,35 +13,32 @@ spec:
         app: db
     spec:
       containers:
-        - name: mysql
-          image: mysql:8.4
+        - name: postgres
+          image: postgres:16
           env:
-            - name: MYSQL_DATABASE
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_DB
               valueFrom:
                 configMapKeyRef:
                   name: app-config
                   key: DB_NAME
-            - name: MYSQL_USER
+            - name: POSTGRES_USER
               valueFrom:
                 configMapKeyRef:
                   name: app-config
                   key: DB_USER
-            - name: MYSQL_PASSWORD
+            - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: mysql-secret
+                  name: postgres-secret
                   key: DB_PASSWORD
-            - name: MYSQL_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-secret
-                  key: MYSQL_ROOT_PASSWORD
           ports:
-            - containerPort: 3306
+            - containerPort: 5432
           volumeMounts:
-            - name: mysql-storage
-              mountPath: /var/lib/mysql
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
       volumes:
-        - name: mysql-storage
+        - name: postgres-storage
           persistentVolumeClaim:
-            claimName: mysql-data
+            claimName: postgres-data

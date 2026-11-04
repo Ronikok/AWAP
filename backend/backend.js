@@ -1,17 +1,17 @@
 import express from "express";
 import cors from "cors";
-import mysql from "mysql2/promise";
+import pg from "pg";
+
+const { Pool } = pg;
 
 const app = express();
 const port = Number(process.env.PORT || 8000);
 
-const pool = mysql.createPool({
+const pool = new Pool({
   host: process.env.DB_HOST || "db",
   user: process.env.DB_USER || "appuser",
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME || "appdb",
-  waitForConnections: true,
-  connectionLimit: 10,
 });
 
 app.use(express.json());
