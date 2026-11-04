@@ -1,0 +1,148 @@
+/* Main navbar */
+.rio-header {
+  height: 120px;
+  width: 100%;
+  background-color: #1e1e1e;
+  border-bottom: 1px solid #383838;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 45px;
+  position: relative;
+  gap: 40px;
+}
+
+/* Rio logo */
+.rio-logo {
+  font-family: Georgia, serif;
+  font-size: 60px;
+  font-weight: bold;
+  line-height: 1;
+  color: white;
+  flex-shrink: 0;
+}
+
+.rio-logo span {
+  display: block;
+  font-size: 24px;
+  font-weight: normal;
+  margin-top: 6px;
+}
+
+/* Navigation links */
+.rio-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 55px;
+
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.rio-nav a {
+  color: white;
+  text-decoration: none;
+  font-size: 24px;
+  font-weight: 500;
+  padding: 42px 0;
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+
+.rio-nav a:hover {
+  color: #d6b45e;
+}
+
+.rio-nav a.active {
+  border-bottom-color: #b51e25;
+}
+
+/* Search and profile icons */
+.rio-nav-icons {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  color: white;
+  font-size: 40px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.rio-nav-icons span {
+  cursor: pointer;
+}
+
+.rio-nav-icons span:hover {
+  color: #d6b45e;
+}
+
+/* Tablet layout */
+@media (max-width: 1000px) {
+  .rio-header {
+    padding: 0 25px;
+  }
+
+  .rio-logo {
+    font-size: 45px;
+  }
+
+  .rio-logo span {
+    font-size: 17px;
+  }
+
+  .rio-nav {
+    gap: 25px;
+  }
+
+  .rio-nav a {
+    font-size: 19px;
+  }
+
+  .rio-nav-icons {
+    font-size: 30px;
+    gap: 18px;
+  }
+}
+
+/* Mobile layout */
+@media (max-width: 700px) {
+  .rio-header {
+    height: auto;
+    min-height: 90px;
+    padding: 18px 20px;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+
+  .rio-logo {
+    font-size: 34px;
+  }
+
+  .rio-logo span {
+    font-size: 13px;
+  }
+
+  .rio-nav {
+    position: static;
+    transform: none;
+    order: 3;
+    width: 100%;
+    justify-content: space-around;
+    gap: 15px;
+  }
+
+  .rio-nav a {
+    font-size: 16px;
+    padding: 12px 0;
+  }
+
+  .rio-nav-icons {
+    font-size: 24px;
+    gap: 18px;
+  }
+}

@@ -1,0 +1,26 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: #1e1e1e;
+  color: white;
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+main {
+  width: min(100% - 80px, 1300px);
+  margin: 0 auto;
+}
+
+@media (max-width: 700px) {
+  main {
+    width: calc(100% - 40px);
+  }
+}
