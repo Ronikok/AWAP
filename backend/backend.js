@@ -26,13 +26,39 @@ app.use(
   }),
 );
 
-app.get("/api/healthz", (req, res) => res.json({ status: "ok" }));
-app.get("/api/readyz", (req, res) => res.json({ status: "ready" }));
-app.get("/api/health", (req, res) =>
+app.get("/api/healthz", (_req, res) => res.json({ status: "ok" }));
+app.get("/api/readyz", (_req, res) => res.json({ status: "ready" }));
+app.get("/api/health", (_req, res) =>
   res.json({ message: "AWAP API version 1.0.1" }),
 );
 
-app.use((error, req, res, next) => {
+app.get("/api/dbtest", async (_req, res) => {
+  try {
+    const result = await pool.query("SELECT NOW()");
+    res.json({
+      message: `Database connection successful: ${result.rows[0].now}`,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Database connection failed" });
+  }
+});
+
+app.get("/api/dbTables", async (_req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
+    );
+    res.json({
+      tables: result.rows.map((row) => row.table_name),
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch database tables" });
+  }
+});
+
+app.use((error, _req, res, next) => {
   console.error(error);
   res.status(500).json({ error: "internal server error" });
 });
