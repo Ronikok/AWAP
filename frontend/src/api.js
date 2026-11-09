@@ -1,20 +1,19 @@
 const API_ROOT = import.meta.env.API_ROOT || "/api";
 
-async function requestJson(path) {
-  const response = await fetch(`${API_ROOT}${path}`);
+async function readJson(response) {
   const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || `Request failed with status ${response.status}`);
-  }
-
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
   return data;
 }
 
 export async function fetchApiHealth() {
-  return requestJson("/health");
+  return readJson(await fetch(`${API_ROOT}/health`));
 }
 
 export async function fetchDbHealth() {
-  return requestJson("/dbtest");
+  return readJson(await fetch(`${API_ROOT}/dbtest`));
+}
+
+export async function fetchRoomCapacity(id) {
+  return readJson(`${API_ROOT}/getRoomCapacity/${id}`);
 }
