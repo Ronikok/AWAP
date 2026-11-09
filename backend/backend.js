@@ -58,6 +58,18 @@ app.get("/api/dbTables", async (_req, res) => {
   }
 });
 
+app.get("api/getRoomCapacity", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT capacity FROM rooms WHERE id = ${req}`,
+    );
+    res.status(200).json({ result });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Failed to fetch data" });
+  }
+});
+
 app.use((error, _req, res, next) => {
   console.error(error);
   res.status(500).json({ error: "internal server error" });
