@@ -12,7 +12,7 @@ CREATE TABLE theatres (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100),
     city VARCHAR(100) NOT NULL,
-	phone_number NUMERIC(20),
+	phone_number VARCHAR(30),
 	address VARCHAR(100) NOT NULL
 );
 
