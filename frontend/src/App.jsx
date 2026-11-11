@@ -1,15 +1,17 @@
 import { Routes, Route } from "react-router";
 import Test from "./pages/Test.jsx";
 import Home from "./pages/Home.jsx";
+import SeatingMap from "./pages/SeatingMap.jsx";
 import Navbar from "./components/navbar.jsx";
 
 function App() {
   return (
     <>
-      <Navbar />  
+      <Navbar />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/test" element={<Test />} />
+        <Route path="/seatingmap/:id" element={<SeatingMap />} />
       </Routes>
     </>
   );

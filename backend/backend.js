@@ -71,7 +71,7 @@ app.get("/api/movies", async (_req, res) => {
         description,
         age_rating
        FROM movies
-       ORDER BY title ASC`
+       ORDER BY title ASC`,
     );
 
     res.json(result.rows);
@@ -82,6 +82,7 @@ app.get("/api/movies", async (_req, res) => {
     });
   }
 });
+
 // Retrieves movie showtimes from the database
 app.get("/api/showtimes", async (req, res) => {
   try {
@@ -104,7 +105,7 @@ app.get("/api/showtimes", async (req, res) => {
        JOIN theatres t ON r.theatre_id = t.id
        WHERE ($1::text IS NULL OR LOWER(t.city) = LOWER($1::text))
        ORDER BY s.start_time ASC`,
-      [city || null]
+      [city || null],
     );
 
     res.json(result.rows);
@@ -113,6 +114,49 @@ app.get("/api/showtimes", async (req, res) => {
     res.status(500).json({
       error: "Failed to fetch showtimes",
     });
+  }
+});
+
+app.get("/api/showtimes/:id", async (req, res) => {
+  try {
+    const movieId = Number(req.params.id);
+
+    if (!Number.isInteger(movieId)) {
+      return res.status(400).json({ error: "Movie ID must be an integer" });
+    }
+
+    const result = await pool.query(
+      `SELECT
+        s.id AS showtime_id,
+        s.movie_id,
+        m.title,
+        m.image_url,
+        m.description,
+        m.duration_minutes,
+        m.age_rating,
+        s.start_time,
+        s.ticket_price,
+        r.id AS room_id,
+        t.name AS theatre_name,
+        t.city
+       FROM showtimes s
+       JOIN movies m ON s.movie_id = m.id
+       JOIN rooms r ON s.room_id = r.id
+       JOIN theatres t ON r.theatre_id = t.id
+       WHERE s.movie_id = $1
+       ORDER BY s.start_time ASC
+       LIMIT 1`,
+      [movieId],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "No showtime found for movie" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Failed to fetch showtime:", error);
+    res.status(500).json({ error: "Failed to fetch showtime" });
   }
 });
 
