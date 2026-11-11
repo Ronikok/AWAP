@@ -58,6 +58,64 @@ app.get("/api/dbTables", async (_req, res) => {
   }
 });
 
+//Retrieves movie information from the movies table
+app.get("/api/movies", async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        id,
+        title,
+        duration_minutes,
+        trailer_url,
+        image_url,
+        description,
+        age_rating
+       FROM movies
+       ORDER BY title ASC`
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Failed to fetch movies:", error);
+    res.status(500).json({
+      error: "Failed to fetch movies",
+    });
+  }
+});
+// Retrieves movie showtimes from the database
+app.get("/api/showtimes", async (req, res) => {
+  try {
+    const { city } = req.query;
+
+    const result = await pool.query(
+      `SELECT
+        s.id,
+        s.movie_id,
+        m.title,
+        m.image_url,
+        s.start_time,
+        s.ticket_price,
+        r.id AS room_id,
+        t.name AS theatre_name,
+        t.city
+       FROM showtimes s
+       JOIN movies m ON s.movie_id = m.id
+       JOIN rooms r ON s.room_id = r.id
+       JOIN theatres t ON r.theatre_id = t.id
+       WHERE ($1::text IS NULL OR LOWER(t.city) = LOWER($1::text))
+       ORDER BY s.start_time ASC`,
+      [city || null]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Failed to fetch showtimes:", error);
+    res.status(500).json({
+      error: "Failed to fetch showtimes",
+    });
+  }
+});
+
 app.get("api/getRoomCapacity", async (req, res) => {
   try {
     const result = await pool.query(
