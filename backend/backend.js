@@ -119,10 +119,10 @@ app.get("/api/showtimes", async (req, res) => {
 
 app.get("/api/showtimes/:id", async (req, res) => {
   try {
-    const movieId = Number(req.params.id);
+    const showtimeId = Number(req.params.id);
 
-    if (!Number.isInteger(movieId)) {
-      return res.status(400).json({ error: "Movie ID must be an integer" });
+    if (!Number.isInteger(showtimeId)) {
+      return res.status(400).json({ error: "Showtime ID must be an integer" });
     }
 
     const result = await pool.query(
@@ -143,14 +143,14 @@ app.get("/api/showtimes/:id", async (req, res) => {
        JOIN movies m ON s.movie_id = m.id
        JOIN rooms r ON s.room_id = r.id
        JOIN theatres t ON r.theatre_id = t.id
-       WHERE s.movie_id = $1
+       WHERE s.id = $1
        ORDER BY s.start_time ASC
        LIMIT 1`,
-      [movieId],
+      [showtimeId],
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "No showtime found for movie" });
+      return res.status(404).json({ error: "Showtime not found" });
     }
 
     res.json(result.rows[0]);

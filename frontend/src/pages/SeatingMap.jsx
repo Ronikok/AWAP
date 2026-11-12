@@ -55,7 +55,7 @@ export default function SeatingMap() {
       seats.length * (showtimeMovie?.ticket_price || 0) -
       discountedSeats * (showtimeMovie?.ticket_price || 0) * 0.5;
 
-    return finalPrice;
+    return Number(finalPrice.toFixed(2));
   }
 
   function getSeatPosition(id) {
