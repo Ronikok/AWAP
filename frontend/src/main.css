@@ -1,10 +1,16 @@
+:root {
+  --theme-black: #1e1e1e;
+  --theme-red: #b51e25;
+  --theme-gold: #d6b45e;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  background-color: #1e1e1e;
+  background-color: var(--theme-black);
   color: white;
   font-family: Arial, sans-serif;
   font-size: 16px;

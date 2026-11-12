@@ -17,3 +17,7 @@ export async function fetchDbHealth() {
 export async function fetchRoomCapacity(id) {
   return readJson(`${API_ROOT}/getRoomCapacity/${id}`);
 }
+
+export async function fetchShowtimeById(id) {
+  return readJson(await fetch(`${API_ROOT}/showtimes/${id}`));
+}

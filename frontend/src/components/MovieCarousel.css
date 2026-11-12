@@ -6,7 +6,7 @@
   align-items: center;
   gap: 20px;
   padding: 30px 45px;
-  border-bottom: 2px solid #b51e25;
+  border-bottom: 2px solid var(--theme-red);
 }
 
 .carousel-track {
@@ -43,7 +43,7 @@
 
 .carousel-placeholder {
   background-color: #d9d9d9;
-  color: #1e1e1e;
+  color: var(--theme-black);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -62,7 +62,7 @@
 }
 
 .carousel-arrow:hover:not(:disabled) {
-  color: #d6b45e;
+  color: var(--theme-gold);
 }
 
 .carousel-arrow:disabled {
