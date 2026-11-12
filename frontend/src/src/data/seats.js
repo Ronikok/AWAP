@@ -11,6 +11,7 @@ export const seats = [
   { id: 10, room_id: 2, is_client_reserved: false },
   { id: 11, room_id: 2, is_client_reserved: false },
   { id: 12, room_id: 2, is_client_reserved: false },
+  { id: 13, room_id: 2, is_client_reserved: false },
   { id: 14, room_id: 2, is_client_reserved: false },
   { id: 15, room_id: 2, is_client_reserved: false },
   { id: 16, room_id: 2, is_client_reserved: false },
@@ -198,5 +199,4 @@ export const seats = [
   { id: 198, room_id: 2, is_client_reserved: false },
   { id: 199, room_id: 2, is_client_reserved: false },
   { id: 200, room_id: 2, is_client_reserved: false },
-  { id: 201, room_id: 2, is_client_reserved: false },
 ];

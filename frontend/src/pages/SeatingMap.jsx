@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { seats } from "../src/data/seats";
 import { fetchShowtimeById } from "../api";
+import "../assets/seatingMap.css";
 
 export default function SeatingMap() {
   const { id } = useParams();
@@ -70,15 +71,14 @@ export default function SeatingMap() {
     return Array.from(
       { length: Math.ceil(seatsToDisplay.length / 10) },
       (_, rowIndex) => (
-        <div
-          key={rowIndex}
-          className="d-grid"
-          style={{ gridTemplateColumns: "repeat(10, 64px)" }}
-        >
+        <div key={rowIndex} className="seatingRow">
           {seatsToDisplay
             .slice(rowIndex * 10, rowIndex * 10 + 10)
             .map((seat) => {
               const isSelected = selectedSeats.includes(seat.id);
+              if (seat.id === 13) {
+                seat.id = "VIP";
+              }
 
               return (
                 <button
@@ -89,7 +89,7 @@ export default function SeatingMap() {
                   disabled={seat.is_client_reserved}
                   onClick={() => toggleSeat(seat.id)}
                   style={{
-                    background: isSelected ? "#D1A000" : "#006D1D",
+                    background: isSelected ? "var(--theme-gold)" : "#006D1D",
                     height: "48px",
                     width: "48px",
                     color: "white",
@@ -112,7 +112,7 @@ export default function SeatingMap() {
       {showtimeError && <p className="text-danger">{showtimeError}</p>}
       {showtimeMovie && (
         <div className="container">
-          <div className="row align-items-start g-4 border rounded p-3 mx-0 my-3">
+          <div className="row align-items-start g-4 border border-red rounded p-3 mx-0 my-3">
             <div className="col-lg-8">
               <div id="mapWrapper" className="row justify-content-center">
                 <div
@@ -127,11 +127,11 @@ export default function SeatingMap() {
                   SCREEN
                 </div>
                 <div
-                  className="d-flex justify-content-center"
+                  className="d-flex justify-content-center overflow-hidden"
                   style={{ width: "100%", overflowX: "auto" }}
                 >
                   <div
-                    className="border d-flex flex-column justify-content-center align-items-center flex-shrink-0"
+                    className="border border-red d-flex flex-column justify-content-center align-items-center flex-shrink-0"
                     id="walkway-left"
                     style={{ width: "100px" }}
                   >
@@ -151,7 +151,7 @@ export default function SeatingMap() {
                     {createSeatingMap(200)}
                   </div>
                   <div
-                    className="border d-flex flex-column justify-content-center align-items-center flex-shrink-0"
+                    className="border border-red d-flex flex-column justify-content-center align-items-center flex-shrink-0"
                     id="walkway-right"
                     style={{ width: "100px" }}
                   >
@@ -170,11 +170,9 @@ export default function SeatingMap() {
             <aside className="col-lg-4">
               <div className="p-4 h-100">
                 {showtimeMovie.poster && (
-                  <img
-                    src={showtimeMovie.poster}
-                    alt={showtimeMovie.title}
-                    className="img-fluid rounded mb-3"
-                  />
+                  <div className="posterWrapper">
+                    <img src={showtimeMovie.poster} alt={showtimeMovie.title} />
+                  </div>
                 )}
                 {!showtimeMovie.poster && (
                   <div
@@ -214,17 +212,24 @@ export default function SeatingMap() {
                 <h3 className="h5">Selected seats</h3>
                 {selectedSeats.length > 0 ? (
                   <div>
-                    {[...selectedSeats]
-                      .sort((a, b) => a - b)
-                      .map((id) => {
-                        const position = getSeatPosition(id);
+                    <div className="selectedList">
+                      <ul className="p-0">
+                        {[...selectedSeats]
+                          .sort((a, b) => a - b)
+                          .map((id) => {
+                            const position = getSeatPosition(id);
 
-                        return (
-                          <div key={id}>
-                            Row {position.row}, seat {id}
-                          </div>
-                        );
-                      })}
+                            return (
+                              <li key={id} className="list-group-item">
+                                Row {position.row}, seat {id}
+                              </li>
+                            );
+                          })}
+                      </ul>
+                    </div>
+                    {selectedSeats.length > 20 ? (
+                      <p>and {selectedSeats.length - 20} more</p>
+                    ) : null}{" "}
                   </div>
                 ) : (
                   <p>No seats selected</p>
@@ -235,6 +240,12 @@ export default function SeatingMap() {
                 <p className="mb-0">
                   Total price: <strong>{calculatePrice(selectedSeats)}€</strong>
                 </p>
+                <button
+                  type="button"
+                  className="btn confirmSeatsButton px-2 mt-3"
+                >
+                  Confirm seats
+                </button>
               </div>
             </aside>
           </div>

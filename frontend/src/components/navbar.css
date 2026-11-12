@@ -2,7 +2,7 @@
 .rio-header {
   height: 120px;
   width: 100%;
-  background-color: #1e1e1e;
+  background-color: var(--theme-black);
   border-bottom: 1px solid #383838;
 
   display: flex;
@@ -55,11 +55,11 @@
 }
 
 .rio-nav a:hover {
-  color: #d6b45e;
+  color: var(--theme-gold);
 }
 
 .rio-nav a.active {
-  border-bottom-color: #b51e25;
+  border-bottom-color: var(--theme-red);
 }
 
 /* Search and profile icons */
@@ -78,7 +78,7 @@
 }
 
 .rio-nav-icons span:hover {
-  color: #d6b45e;
+  color: var(--theme-gold);
 }
 
 /* Tablet layout */
