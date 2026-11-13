@@ -83,6 +83,51 @@ app.get("/api/movies", async (_req, res) => {
   }
 });
 
+// Tests the TMDB API connection by fetching popular movies
+app.get("/api/tmdb/test", async (_req, res) => {
+  try {
+    const token = process.env.TMDB_READ_ACCESS_TOKEN;
+
+    if (!token) {
+      return res.status(500).json({
+        error: "TMDB token is not configured",
+      });
+    }
+
+    const response = await fetch(
+      "https://api.themoviedb.org/3/movie/popular?language=en-US&page=1",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          accept: "application/json",
+        },
+      },
+    );
+
+    if (!response.ok) {
+      return res.status(502).json({
+        error: `TMDB request failed with status ${response.status}`,
+      });
+    }
+
+    const data = await response.json();
+
+    res.json(
+      data.results.map((movie) => ({
+        tmdb_id: movie.id,
+        title: movie.title,
+        description: movie.overview,
+        poster: movie.poster_path,
+      })),
+    );
+  } catch (error) {
+    console.error("TMDB connection failed:", error);
+    res.status(500).json({
+      error: "Failed to connect to TMDB",
+    });
+  }
+});
+
 // Retrieves movie showtimes from the database
 app.get("/api/showtimes", async (req, res) => {
   try {

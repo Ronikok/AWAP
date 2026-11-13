@@ -35,13 +35,14 @@ CREATE TABLE seats (
 );
 
 CREATE TABLE movies (
-	id SERIAL PRIMARY KEY,
-	title VARCHAR(50) NOT NULL,
-	duration_minutes INTEGER NOT NULL DEFAULT 60,
-	trailer_url TEXT,
-	image_url TEXT,
-	description TEXT,
-	age_rating VARCHAR(20)
+    id SERIAL PRIMARY KEY,
+    tmdb_id INTEGER UNIQUE,
+    title TEXT NOT NULL,
+    duration_minutes INTEGER NOT NULL DEFAULT 60,
+    trailer_url TEXT,
+    image_url TEXT,
+    description TEXT,
+    age_rating VARCHAR(20)
 );
 
 CREATE TABLE showtimes (
