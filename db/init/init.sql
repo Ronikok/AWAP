@@ -83,3 +83,33 @@ CREATE TABLE tickets (
 );
 
 -- TODO: waiting list, company reservations
+
+--placeholder movie for testing
+INSERT INTO movies (
+    title,
+    duration_minutes,
+    image_url,
+    description,
+    age_rating
+) VALUES (
+    'Placeholder Movie',
+    120,
+    'https://upload.wikimedia.org/wikipedia/fi/8/84/Oppenheimer-poster.jpg?utm_source=fi.wikipedia.org&utm_campaign=index&utm_content=original',
+    'Movie details will appear here.',
+    'PG-13'
+);
+
+--placeholder showtime for testing
+INSERT INTO showtimes (
+    movie_id,
+    room_id,
+    start_time,
+    ticket_price,
+    first_screening
+) VALUES (
+    1,
+    2,
+    '2025-01-01 19:00:00',
+    16.90,
+    FALSE
+);

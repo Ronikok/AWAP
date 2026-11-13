@@ -50,12 +50,19 @@ export default function SeatingMap() {
   }
 
   function calculatePrice(seats) {
+    const ticketPriceCents = Math.round(
+      Number(showtimeMovie?.ticket_price || 0) * 100,
+    );
     const discountedSeats = Math.floor(seats.length / 10);
-    const finalPrice =
-      seats.length * (showtimeMovie?.ticket_price || 0) -
-      discountedSeats * (showtimeMovie?.ticket_price || 0) * 0.5;
+    const finalPriceCents =
+      seats.length * ticketPriceCents -
+      discountedSeats * Math.round(ticketPriceCents / 2);
 
-    return finalPrice;
+    return finalPriceCents / 100;
+  }
+
+  function formatPrice(price) {
+    return price.toFixed(2);
   }
 
   function getSeatPosition(id) {
@@ -238,7 +245,8 @@ export default function SeatingMap() {
                   Total seats: <strong>{selectedSeats.length}</strong>
                 </p>
                 <p className="mb-0">
-                  Total price: <strong>{calculatePrice(selectedSeats)}€</strong>
+                  Total price:{" "}
+                  <strong>{formatPrice(calculatePrice(selectedSeats))}€</strong>
                 </p>
                 <button
                   type="button"
