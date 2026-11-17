@@ -1,0 +1,114 @@
+.cinema-page {
+  max-width: 1150px;
+  margin: 0 auto;
+  padding: 45px 30px 80px;
+  color: #ffffff;
+  min-height: 75vh;
+}
+
+.cinema-page h1 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 36px;
+  margin: 0 0 35px;
+  text-align: center;
+}
+
+.cinema-page h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 26px;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #8e5053;
+}
+
+.cinema-page .cinema-empty {
+  background-color: #302526;
+  border: 1px solid #70484a;
+  border-radius: 6px;
+  padding: 45px 20px;
+  text-align: center;
+  color: #d9c4c4;
+  font-size: 16px;
+  margin-top: 25px;
+}
+
+.cinema-page .cinema-error {
+  color: #ff9999;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .cinema-page {
+    padding: 30px 15px 60px;
+  }
+
+  .cinema-page h1 {
+    font-size: 28px;
+  }
+
+  .cinema-page h2 {
+    font-size: 22px;
+  }
+}
+
+/* Date selector */
+
+.cinema-dates {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 25px 0 30px;
+}
+
+.cinema-date {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #ffffff;
+  padding: 14px 20px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+
+.cinema-date:hover {
+  color: #d9a3a3;
+}
+
+.cinema-date.active {
+  color: #ffffff;
+  border-bottom-color: #a65c60;
+  font-weight: bold;
+}
+
+@media (max-width: 600px) {
+  .cinema-dates {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 8px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    padding-bottom: 10px;
+  }
+
+  .cinema-dates::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cinema-date {
+    flex: 0 0 calc((100% - 16px) / 3);
+    min-width: 0;
+    white-space: nowrap;
+    font-size: 16px;
+    padding: 12px 4px;
+    scroll-snap-align: start;
+  }
+}
+
+
