@@ -36,8 +36,9 @@ CREATE TABLE seats (
 
 CREATE TABLE movies (
 	id SERIAL PRIMARY KEY,
-	title VARCHAR(50) NOT NULL,
-	duration_minutes INTEGER NOT NULL DEFAULT 60,
+	tmdb_id INTEGER UNIQUE,
+	title TEXT NOT NULL,
+	duration_minutes INTEGER NOT NULL DEFAULT 1,
 	trailer_url TEXT,
 	image_url TEXT,
 	description TEXT,
@@ -61,7 +62,11 @@ CREATE TABLE reservations (
 	showtime_id INTEGER NOT NULL REFERENCES showtimes(id),
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	expires_at TIMESTAMP,
-	total_price DECIMAL(10,2)
+	total_price DECIMAL(10,2),
+	status VARCHAR(20) NOT NULL DEFAULT 'pending_payment'
+		CHECK (status IN ('pending_payment', 'paid', 'expired', 'cancelled')),
+	stripe_checkout_session_id TEXT UNIQUE,
+	stripe_payment_intent_id TEXT
 );
 
 CREATE TABLE reservation_seats (
@@ -79,6 +84,11 @@ CREATE TABLE tickets (
 	child_discount BOOLEAN DEFAULT FALSE,
 	tenth_ticket_discount BOOLEAN DEFAULT FALSE,
 	UNIQUE (reservation_id, seat_id)
+);
+
+CREATE TABLE processed_stripe_events (
+	event_id TEXT PRIMARY KEY,
+	processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- TODO: waiting list, company reservations

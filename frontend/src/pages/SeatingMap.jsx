@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { seats } from "../src/data/seats";
-import { fetchShowtimeById } from "../api";
+import { startCheckout, fetchShowtimeById } from "../api";
+import ConfirmSeatsModal from "../components/ConfirmSeatsModal";
 import "../assets/seatingMap.css";
 
 export default function SeatingMap() {
@@ -9,6 +10,11 @@ export default function SeatingMap() {
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [showtimeMovie, setShowtimeMovie] = useState(null);
   const [showtimeError, setShowtimeError] = useState("");
+  const [paymentError, setPaymentError] = useState("");
+  const [isStartingPayment, setIsStartingPayment] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [email, setEmail] = useState("");
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -63,6 +69,24 @@ export default function SeatingMap() {
 
   function formatPrice(price) {
     return price.toFixed(2);
+  }
+
+  async function handlePayment() {
+    setPaymentError("");
+    setIsStartingPayment(true);
+
+    try {
+      const { url } = await startCheckout({
+        showtimeId: id,
+        seatIds: selectedSeats,
+        customerName,
+        email,
+      });
+      window.location.assign(url);
+    } catch (error) {
+      setPaymentError(error.message);
+      setIsStartingPayment(false);
+    }
   }
 
   function getSeatPosition(id) {
@@ -251,12 +275,39 @@ export default function SeatingMap() {
                 <button
                   type="button"
                   className="btn confirmSeatsButton px-2 mt-3"
+                  disabled={
+                    selectedSeats.length === 0 ||
+                    isStartingPayment
+                  }
+                  onClick={() => setShowConfirmation(true)}
                 >
-                  Confirm seats
+                  {isStartingPayment ? "Opening payment..." : "Confirm seats"}
                 </button>
+                {paymentError && (
+                  <p className="text-danger mt-2">{paymentError}</p>
+                )}
               </div>
             </aside>
           </div>
+          {showConfirmation && (
+            <ConfirmSeatsModal
+              showtime={{
+                movieTitle: showtimeMovie?.title,
+                startTime: showtimeMovie?.start_time,
+              }}
+              selectedSeats={selectedSeats}
+              customerName={customerName}
+              email={email}
+              onCustomerNameChange={(event) =>
+                setCustomerName(event.target.value)
+              }
+              onEmailChange={(event) => setEmail(event.target.value)}
+              onConfirm={handlePayment}
+              isStartingPayment={isStartingPayment}
+              paymentError={paymentError}
+              onClose={() => setShowConfirmation(false)}
+            />
+          )}
         </div>
       )}
     </>

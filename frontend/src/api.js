@@ -21,3 +21,13 @@ export async function fetchRoomCapacity(id) {
 export async function fetchShowtimeById(id) {
   return readJson(await fetch(`${API_ROOT}/showtimes/${id}`));
 }
+
+export async function startCheckout({ showtimeId, seatIds, customerName, email }) {
+  return readJson(
+    await fetch(`${API_ROOT}/checkout-sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ showtimeId, seatIds, customerName, email }),
+    }),
+  );
+}

@@ -37,3 +37,88 @@
 .border-red {
   border: 2px solid var(--theme-red) !important;
 }
+
+.confirmSeatsModal {
+  z-index: 1055;
+}
+
+.confirmSeatsModal .modal-dialog {
+  position: relative;
+  z-index: 2;
+}
+
+.confirmSeatsModal .modal-content {
+  background-color: var(--theme-black);
+  color: white;
+  border: 1px solid var(--theme-gold);
+  border-radius: 8px;
+  box-shadow: 0 0 24px rgb(0 0 0 / 45%);
+}
+
+.confirmSeatsModal .modal-header {
+  border-bottom-color: rgb(214 180 94 / 35%);
+}
+
+.confirmSeatsModal .modal-footer {
+  border-top-color: rgb(214 180 94 / 35%);
+  gap: 0.5rem;
+}
+
+.confirmSeatsModal .btn-close {
+  filter: invert(1);
+}
+
+.confirmSeatsModal .form-control {
+  background-color: #292929;
+  color: white;
+  border-color: #555;
+}
+
+.confirmSeatsModal .form-control:focus {
+  background-color: #292929;
+  color: white;
+  border-color: var(--theme-gold);
+  box-shadow: 0 0 0 0.2rem rgb(214 180 94 / 25%);
+}
+
+.confirmSeatsModal .form-control::placeholder {
+  color: #aaa;
+}
+
+.confirmSeatsModal__showtime {
+  color: var(--theme-gold);
+  font-weight: 600;
+}
+
+.confirmSeatsModal__seats {
+  padding: 0.75rem;
+  background-color: #292929;
+  border-left: 3px solid var(--theme-red);
+  border-radius: 4px;
+}
+
+.confirmSeatsModal__accountButton {
+  color: var(--theme-gold);
+  border: 1px solid var(--theme-gold);
+}
+
+.confirmSeatsModal__accountButton:hover {
+  color: var(--theme-black);
+  background-color: var(--theme-gold);
+}
+
+.confirmSeatsModal__paymentButton {
+  background-color: var(--theme-red);
+  color: white;
+  border: 1px solid var(--theme-red);
+}
+
+.confirmSeatsModal__paymentButton:hover:not(:disabled) {
+  background-color: #d32b33;
+  border-color: #d32b33;
+  color: white;
+}
+
+.confirmSeatsModal__paymentButton:disabled {
+  opacity: 0.6;
+}
