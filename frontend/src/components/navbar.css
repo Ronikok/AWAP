@@ -2,7 +2,7 @@
 .rio-header {
   height: 120px;
   width: 100%;
-  background-color: var(--theme-black);
+  background-color: #1e1e1e;
   border-bottom: 1px solid #383838;
 
   display: flex;
@@ -55,11 +55,11 @@
 }
 
 .rio-nav a:hover {
-  color: var(--theme-gold);
+  color: #d6b45e;
 }
 
 .rio-nav a.active {
-  border-bottom-color: var(--theme-red);
+  border-bottom-color: #b51e25;
 }
 
 /* Search and profile icons */
@@ -78,7 +78,7 @@
 }
 
 .rio-nav-icons span:hover {
-  color: var(--theme-gold);
+  color: #d6b45e;
 }
 
 /* Tablet layout */
@@ -145,4 +145,33 @@
     font-size: 24px;
     gap: 18px;
   }
+}
+
+/* Account area (login link / logged-in user) */
+.rio-account-link {
+  color: white;
+  text-decoration: none;
+}
+
+.rio-account-link:hover {
+  color: #d6b45e;
+}
+
+.rio-user-name {
+  font-size: 20px;
+}
+
+.rio-logout {
+  font-size: 16px;
+  padding: 8px 14px;
+  border: 1px solid #383838;
+  border-radius: 4px;
+  background: transparent;
+  color: white;
+  cursor: pointer;
+}
+
+.rio-logout:hover {
+  color: #d6b45e;
+  border-color: #d6b45e;
 }

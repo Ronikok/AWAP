@@ -22,7 +22,38 @@ export async function fetchShowtimeById(id) {
   return readJson(await fetch(`${API_ROOT}/showtimes/${id}`));
 }
 
-export async function startCheckout({ showtimeId, seatIds, customerName, email }) {
+async function post(path, body) {
+  return readJson(
+    await fetch(`${API_ROOT}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export function registerUser(name, email, password) {
+  return post("/auth/register", { name, email, password });
+}
+
+export function loginUser(email, password) {
+  return post("/auth/login", { email, password });
+}
+
+export function logoutUser() {
+  return post("/auth/logout", {});
+}
+
+export async function fetchMe() {
+  return readJson(await fetch(`${API_ROOT}/auth/me`));
+}
+
+export async function startCheckout({
+  showtimeId,
+  seatIds,
+  customerName,
+  email,
+}) {
   return readJson(
     await fetch(`${API_ROOT}/checkout-sessions`, {
       method: "POST",
