@@ -36,7 +36,13 @@ jobs:
           oc version --client
 
       - name: Deploy to Rahti
+        env:
+          TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
         run: |
           oc login --token=${{ secrets.RAHTI_TOKEN }} --server=${{ secrets.RAHTI_SERVER }}
           oc project "${{ secrets.RAHTI_PROJECT }}"
           oc set image deployment/backend backend=${{ env.IMAGE }}
+          oc create secret generic tmdb-api \
+            --from-literal=TMDB_READ_ACCESS_TOKEN="$TMDB_READ_ACCESS_TOKEN" \
+            --dry-run=client -o yaml | oc apply -f -
+          oc set env deployment/backend --from=secret/tmdb-api
