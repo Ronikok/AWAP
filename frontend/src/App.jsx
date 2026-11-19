@@ -7,6 +7,7 @@ import Register from "./pages/Register.jsx";
 import Navbar from "./components/navbar.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import PaymentSuccess from "./pages/PaymentSuccess.jsx";
+import CinemaPage from "./pages/CinemaPage.jsx";
 
 function App() {
   return (
@@ -19,6 +20,8 @@ function App() {
         <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/oulu" element={<CinemaPage city="Oulu" />} />
+        <Route path="/tampere" element={<CinemaPage city="Tampere" />} />
 
         {/* käyttäjät */}
         <Route element={<ProtectedRoute />}>

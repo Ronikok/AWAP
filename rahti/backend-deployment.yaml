@@ -50,3 +50,13 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: DB_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-secret
+                  key: JWT_SECRET
+            - name: COOKIE_SECURE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: COOKIE_SECURE
