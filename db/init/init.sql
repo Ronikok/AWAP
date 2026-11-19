@@ -28,11 +28,113 @@ CREATE TABLE seats (
     id SERIAL PRIMARY KEY,
     room_id INTEGER NOT NULL REFERENCES rooms(id),
     row_number INTEGER NOT NULL CHECK (row_number <> 13),
-    seat_number INTEGER NOT NULL CHECK (seat_number <> 13),
+    seat_number INTEGER NOT NULL CHECK (seat_number > 0),
     column_position INTEGER NOT NULL,
     is_client_reserved BOOLEAN DEFAULT FALSE,
     UNIQUE (room_id, row_number, seat_number)
 );
+
+--insert seats foor rooms 1-4
+INSERT INTO seats (
+    room_id,
+    row_number,
+    seat_number,
+    column_position,
+    is_client_reserved
+)
+WITH seat_positions AS (
+    SELECT
+        seat_index,
+        ((seat_index - 1) / 10) + 1 AS row_index,
+        ((seat_index - 1) % 10) + 1 AS column_position
+    FROM generate_series(1, 100) AS seat_index
+)
+SELECT
+    1,
+    CASE
+        WHEN row_index < 13 THEN row_index
+        ELSE row_index + 1
+    END,
+    seat_index,
+    column_position,
+    FALSE
+FROM seat_positions;
+
+INSERT INTO seats (
+    room_id,
+    row_number,
+    seat_number,
+    column_position,
+    is_client_reserved
+)
+WITH seat_positions AS (
+    SELECT
+        seat_index,
+        ((seat_index - 1) / 10) + 1 AS row_index,
+        ((seat_index - 1) % 10) + 1 AS column_position
+    FROM generate_series(1, 200) AS seat_index
+)
+SELECT
+    2,
+    CASE
+        WHEN row_index < 13 THEN row_index
+        ELSE row_index + 1
+    END,
+    seat_index,
+    column_position,
+    FALSE
+FROM seat_positions;
+
+INSERT INTO seats (
+    room_id,
+    row_number,
+    seat_number,
+    column_position,
+    is_client_reserved
+)
+WITH seat_positions AS (
+    SELECT
+        seat_index,
+        ((seat_index - 1) / 10) + 1 AS row_index,
+        ((seat_index - 1) % 10) + 1 AS column_position
+    FROM generate_series(1, 100) AS seat_index
+)
+SELECT
+    3,
+    CASE
+        WHEN row_index < 13 THEN row_index
+        ELSE row_index + 1
+    END,
+    seat_index,
+    column_position,
+    FALSE
+FROM seat_positions;
+
+INSERT INTO seats (
+    room_id,
+    row_number,
+    seat_number,
+    column_position,
+    is_client_reserved
+)
+WITH seat_positions AS (
+    SELECT
+        seat_index,
+        ((seat_index - 1) / 10) + 1 AS row_index,
+        ((seat_index - 1) % 10) + 1 AS column_position
+    FROM generate_series(1, 200) AS seat_index
+)
+SELECT
+    4,
+    CASE
+        WHEN row_index < 13 THEN row_index
+        ELSE row_index + 1
+    END,
+    seat_index,
+    column_position,
+    FALSE
+FROM seat_positions;
+
 
 CREATE TABLE movies (
 	id SERIAL PRIMARY KEY,

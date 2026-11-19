@@ -22,6 +22,15 @@ export async function fetchShowtimeById(id) {
   return readJson(await fetch(`${API_ROOT}/showtimes/${id}`));
 }
 
+export async function fetchShowtimeSeats(id) {
+  return readJson(await fetch(`${API_ROOT}/showtimes/${id}/seats`));
+}
+
+export function getTicketUrl(reservationId, sessionId) {
+  const params = new URLSearchParams({ session_id: sessionId });
+  return `${API_ROOT}/reservations/${reservationId}/ticket?${params}`;
+}
+
 async function post(path, body) {
   return readJson(
     await fetch(`${API_ROOT}${path}`, {
@@ -53,12 +62,19 @@ export async function startCheckout({
   seatIds,
   customerName,
   email,
+  ticketCount,
 }) {
   return readJson(
     await fetch(`${API_ROOT}/checkout-sessions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ showtimeId, seatIds, customerName, email }),
+      body: JSON.stringify({
+        showtimeId,
+        seatIds,
+        customerName,
+        email,
+        ticketCount,
+      }),
     }),
   );
 }

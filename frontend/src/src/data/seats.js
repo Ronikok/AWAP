@@ -1,3 +1,4 @@
+/*  FOR TESTING PURPOSES ONLY
 export const seats = [
   { id: 1, room_id: 2, is_client_reserved: false },
   { id: 2, room_id: 2, is_client_reserved: false },
@@ -200,3 +201,4 @@ export const seats = [
   { id: 199, room_id: 2, is_client_reserved: false },
   { id: 200, room_id: 2, is_client_reserved: false },
 ];
+*/

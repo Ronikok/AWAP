@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import pg from "pg";
 import Stripe from "stripe";
+import PDFDocument from "pdfkit";
 
 const { Pool } = pg;
 
@@ -18,6 +19,22 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME || "appdb",
 });
+
+async function expirePendingReservations() {
+  try {
+    await pool.query(
+      `UPDATE reservations
+       SET status = 'expired'
+       WHERE status = 'pending_payment'
+         AND expires_at <= NOW()`,
+    );
+  } catch (error) {
+    console.error("Failed to expire pending reservations:", error);
+  }
+}
+
+setInterval(expirePendingReservations, 60 * 1000).unref();
+expirePendingReservations();
 
 app.post(
   "/api/stripe/webhook",
@@ -216,6 +233,43 @@ app.get("/api/showtimes/:id", async (req, res) => {
   }
 });
 
+app.get("/api/showtimes/:id/seats", async (req, res) => {
+  try {
+    const showtimeId = Number(req.params.id);
+    if (!Number.isInteger(showtimeId)) {
+      return res.status(400).json({ error: "Showtime ID must be an integer" });
+    }
+
+    const result = await pool.query(
+      `SELECT
+        st.id,
+        st.row_number,
+        st.seat_number,
+        st.column_position,
+        st.is_client_reserved,
+        EXISTS (
+          SELECT 1
+          FROM reservation_seats rs
+          JOIN reservations r ON r.id = rs.reservation_id
+          WHERE rs.seat_id = st.id
+            AND r.showtime_id = $1
+            AND r.status IN ('pending_payment', 'paid')
+            AND (r.status = 'paid' OR r.expires_at > NOW())
+        ) AS is_reserved
+       FROM showtimes s
+       JOIN seats st ON st.room_id = s.room_id
+       WHERE s.id = $1
+       ORDER BY st.row_number, st.seat_number`,
+      [showtimeId],
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Failed to fetch seats:", error);
+    res.status(500).json({ error: "Failed to fetch seats" });
+  }
+});
+
 //stripe
 
 app.post("/api/checkout-sessions", async (req, res) => {
@@ -233,15 +287,29 @@ app.post("/api/checkout-sessions", async (req, res) => {
       !Number.isInteger(showtimeId) ||
       !Array.isArray(seatIds) ||
       seatIds.length === 0 ||
-      !seatIds.every((seatId) => Number.isInteger(seatId)) ||
+      !seatIds.every((seatId) => Number.isInteger(seatId))
+    ) {
+      return res.status(400).json({
+        error: "Showtime or seat selection is invalid",
+      });
+    }
+
+    if (
       typeof customerName !== "string" ||
       customerName.trim().length === 0 ||
-      customerName.trim().length > 100 ||
+      customerName.trim().length > 100
+    ) {
+      return res.status(400).json({
+        error: "Provide a valid name",
+      });
+    }
+
+    if (
       typeof email !== "string" ||
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
     ) {
       return res.status(400).json({
-        error: "Choose seats and provide a valid email address",
+        error: "Provide a valid email address",
       });
     }
 
@@ -336,27 +404,36 @@ app.post("/api/checkout-sessions", async (req, res) => {
       client.release();
     }
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      customer_email: email,
-      line_items: [
-        {
-          price_data: {
-            currency: "eur",
-            product_data: { name: `${showtime.title} tickets` },
-            unit_amount: totalCents,
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        customer_email: email,
+        line_items: [
+          {
+            price_data: {
+              currency: "eur",
+              product_data: { name: `${showtime.title} tickets` },
+              unit_amount: totalCents,
+            },
+            quantity: uniqueSeatIds.length,
           },
-          quantity: 1,
+        ],
+        success_url: `${frontendUrl}/payment-success?reservation_id=${reservationId}&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${frontendUrl}/seatingmap/${showtimeId}?payment=cancelled&error=${encodeURIComponent("Payment was cancelled. Please try again.")}`,
+        metadata: {
+          showtimeId: String(showtimeId),
+          reservationId: String(reservationId),
+          seatIds: uniqueSeatIds.join(","),
         },
-      ],
-      success_url: `${frontendUrl}/payment-success?reservation_id=${reservationId}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${frontendUrl}/seatingmap/${showtimeId}`,
-      metadata: {
-        showtimeId: String(showtimeId),
-        reservationId: String(reservationId),
-        seatIds: uniqueSeatIds.join(","),
-      },
-    });
+      });
+    } catch (error) {
+      await pool.query(
+        "UPDATE reservations SET status = 'cancelled' WHERE id = $1 AND status = 'pending_payment'",
+        [reservationId],
+      );
+      throw error;
+    }
 
     await pool.query(
       "UPDATE reservations SET stripe_checkout_session_id = $1 WHERE id = $2",
@@ -364,7 +441,10 @@ app.post("/api/checkout-sessions", async (req, res) => {
     );
     res.status(201).json({ url: session.url, reservationId });
   } catch (error) {
-    console.error("Failed to create Stripe checkout session:", error);
+    console.error(
+      "Failed to create Stripe checkout session:",
+      error.message || error,
+    );
     res.status(500).json({ error: "Failed to create payment session" });
   }
 });
@@ -412,29 +492,45 @@ async function handleStripeWebhook(req, res) {
       (event.type !== "checkout.session.completed" ||
         session.payment_status === "paid")
     ) {
-      await client.query(
+      const paidResult = await client.query(
         `UPDATE reservations
          SET status = 'paid', stripe_payment_intent_id = $1
-         WHERE id = $2 AND status = 'pending_payment'`,
+         WHERE id = $2
+           AND status = 'pending_payment'
+           AND expires_at > NOW()
+         RETURNING id`,
         [session.payment_intent || null, reservationId],
       );
-      await client.query(
-        `INSERT INTO tickets (reservation_id, seat_id)
-         SELECT reservation_id, seat_id
-         FROM reservation_seats
-         WHERE reservation_id = $1
-         ON CONFLICT (reservation_id, seat_id) DO NOTHING`,
-        [reservationId],
-      );
+      if (paidResult.rows.length > 0) {
+        await client.query(
+          `INSERT INTO tickets (reservation_id, seat_id)
+           SELECT reservation_id, seat_id
+           FROM reservation_seats
+           WHERE reservation_id = $1
+           ON CONFLICT (reservation_id, seat_id) DO NOTHING`,
+          [reservationId],
+        );
+      } else {
+        await client.query(
+          "UPDATE reservations SET status = 'expired' WHERE id = $1 AND status = 'pending_payment'",
+          [reservationId],
+        );
+      }
     }
 
     if (
       Number.isInteger(reservationId) &&
-      event.type === "checkout.session.expired"
+      (event.type === "checkout.session.expired" ||
+        event.type === "checkout.session.async_payment_failed")
     ) {
       await client.query(
-        "UPDATE reservations SET status = 'expired' WHERE id = $1 AND status = 'pending_payment'",
-        [reservationId],
+        `UPDATE reservations
+         SET status = CASE
+           WHEN $2 = 'checkout.session.expired' THEN 'expired'
+           ELSE 'cancelled'
+         END
+         WHERE id = $1 AND status = 'pending_payment'`,
+        [reservationId, event.type],
       );
     }
 
@@ -449,6 +545,76 @@ async function handleStripeWebhook(req, res) {
   }
 }
 //stripe portion ends
+
+//create a ticket PDF
+app.get("/api/reservations/:id/ticket", async (req, res) => {
+  const reservationId = Number(req.params.id);
+  const sessionId = req.query.session_id;
+
+  if (!Number.isInteger(reservationId) || !sessionId) {
+    return res.status(400).json({ error: "Invalid ticket request" });
+  }
+
+  const reservationResult = await pool.query(
+    `SELECT
+       r.id,
+       r.status,
+       r.customer_name,
+       r.customer_email,
+       r.stripe_checkout_session_id,
+       s.start_time,
+       m.title
+     FROM reservations r
+     JOIN showtimes s ON s.id = r.showtime_id
+     JOIN movies m ON m.id = s.movie_id
+     WHERE r.id = $1`,
+    [reservationId],
+  );
+
+  if (
+    reservationResult.rows.length === 0 ||
+    reservationResult.rows[0].status !== "paid" ||
+    reservationResult.rows[0].stripe_checkout_session_id !== sessionId
+  ) {
+    return res.status(404).json({ error: "Ticket not found" });
+  }
+
+  const reservation = reservationResult.rows[0];
+
+  const seatsResult = await pool.query(
+    `SELECT st.row_number, st.seat_number
+     FROM reservation_seats rs
+     JOIN seats st ON st.id = rs.seat_id
+     WHERE rs.reservation_id = $1
+     ORDER BY st.row_number, st.seat_number`,
+    [reservationId],
+  );
+
+  const seats = seatsResult.rows
+    .map((seat) => `Row ${seat.row_number}, Seat ${seat.seat_number}`)
+    .join(", ");
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="ticket-${reservationId}.pdf"`,
+  );
+
+  const pdf = new PDFDocument();
+  pdf.pipe(res);
+
+  pdf.fontSize(24).text("RIO Cinemas", { align: "center" });
+  pdf.moveDown();
+  pdf.fontSize(16).text(reservation.title);
+  pdf.fontSize(12).text(`Showtime: ${reservation.start_time}`);
+  pdf.text(`Seats: ${seats}`);
+  pdf.text(`Customer: ${reservation.customer_name}`);
+  pdf.text(`Reservation: #${reservationId}`);
+  pdf.moveDown();
+  pdf.text("Please present this ticket when entering.");
+
+  pdf.end();
+});
 
 app.get("api/getRoomCapacity", async (req, res) => {
   try {
