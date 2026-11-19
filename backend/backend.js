@@ -565,6 +565,63 @@ app.get("/api/reservations/:id/ticket", async (req, res) => {
     return res.status(400).json({ error: "Invalid ticket request" });
   }
 
+  if (!stripe) {
+    return res.status(503).json({ error: "Stripe is not configured" });
+  }
+
+  try {
+    const checkoutSession = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (
+      checkoutSession.payment_status === "paid" &&
+      Number(checkoutSession.metadata?.reservationId) === reservationId
+    ) {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const paidResult = await client.query(
+          `UPDATE reservations
+           SET status = 'paid',
+               stripe_checkout_session_id = $1,
+               stripe_payment_intent_id = $2
+           WHERE id = $3
+             AND status = 'pending_payment'
+             AND expires_at > NOW()
+           RETURNING id`,
+          [
+            sessionId,
+            checkoutSession.payment_intent || null,
+            reservationId,
+          ],
+        );
+
+        if (paidResult.rows.length > 0) {
+          await client.query(
+            `INSERT INTO tickets (reservation_id, seat_id)
+             SELECT reservation_id, seat_id
+             FROM reservation_seats
+             WHERE reservation_id = $1
+             ON CONFLICT (reservation_id, seat_id) DO NOTHING`,
+            [reservationId],
+          );
+        }
+
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
+  } catch (error) {
+    if (error.type === "StripeInvalidRequestError") {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
+    console.error("Failed to verify Stripe checkout session:", error);
+    return res.status(500).json({ error: "Failed to verify payment" });
+  }
+
   const reservationResult = await pool.query(
     `SELECT
        r.id,
