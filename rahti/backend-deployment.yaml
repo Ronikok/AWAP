@@ -70,3 +70,5 @@ spec:
                 secretKeyRef:
                   name: stripe-secret
                   key: STRIPE_WEBHOOK_SECRET
+            - name: FRONTEND_URL
+              value: "https://frontend-awap.2.rahtiapp.fi"

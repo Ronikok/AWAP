@@ -583,10 +583,21 @@ app.get("/api/reservations/:id/ticket", async (req, res) => {
 
   if (
     reservationResult.rows.length === 0 ||
-    reservationResult.rows[0].status !== "paid" ||
+    reservationResult.rows[0].status !== "paid"
+  ) {
+    return res.status(404).json({
+      error: "Ticket not ready",
+      reservationStatus: reservationResult.rows[0]?.status || null,
+    });
+  }
+
+  if (
     reservationResult.rows[0].stripe_checkout_session_id !== sessionId
   ) {
-    return res.status(404).json({ error: "Ticket not found" });
+    return res.status(404).json({
+      error: "Ticket not found",
+      reason: "Session mismatch",
+    });
   }
 
   const reservation = reservationResult.rows[0];
