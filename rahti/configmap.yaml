@@ -6,3 +6,4 @@ data:
   DB_HOST: "db"
   DB_USER: "appuser"
   DB_NAME: "appdb"
+  COOKIE_SECURE: "true"

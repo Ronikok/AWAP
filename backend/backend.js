@@ -1,6 +1,9 @@
 import express from "express";
 import cors from "cors";
 import pg from "pg";
+import cookieParser from "cookie-parser";
+import { createAuth } from "./auth.js";
+import { createAdminRouter } from "./admin.js";
 
 const { Pool } = pg;
 
@@ -15,6 +18,7 @@ const pool = new Pool({
 });
 
 app.use(express.json());
+app.use(cookieParser());
 app.use(
   cors({
     origin: [
@@ -23,8 +27,14 @@ app.use(
       "http://localhost:8080",
       "http://127.0.0.1:8080",
     ],
+    credentials: true,
   }),
 );
+
+// Authentication + role-based access (see auth.js and admin.js)
+const { authRouter, requireAuth, requireRole } = createAuth(pool);
+app.use("/api/auth", authRouter);
+app.use("/api/admin", createAdminRouter(pool, requireAuth, requireRole));
 
 app.get("/api/healthz", (_req, res) => res.json({ status: "ok" }));
 app.get("/api/readyz", (_req, res) => res.json({ status: "ready" }));

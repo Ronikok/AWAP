@@ -24,6 +24,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
       TMDB_READ_ACCESS_TOKEN: ${TMDB_READ_ACCESS_TOKEN}
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       db:
         condition: service_healthy
