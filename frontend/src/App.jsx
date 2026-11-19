@@ -6,6 +6,7 @@ import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Navbar from "./components/navbar.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import PaymentSuccess from "./pages/PaymentSuccess.jsx";
 import CinemaPage from "./pages/CinemaPage.jsx";
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/test" element={<Test />} />
         <Route path="/seatingmap/:id" element={<SeatingMap />} />
+        <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/oulu" element={<CinemaPage city="Oulu" />} />

@@ -30,3 +30,79 @@ main {
     width: calc(100% - 40px);
   }
 }
+
+.paymentStatusPage {
+  min-height: calc(100vh - 120px);
+  display: grid;
+  place-items: center;
+  padding: 40px 20px;
+}
+
+.paymentStatusCard {
+  width: min(100%, 560px);
+  padding: 44px 36px;
+  text-align: center;
+  background: #262626;
+  border: 1px solid rgb(214 180 94 / 45%);
+  border-radius: 12px;
+  box-shadow: 0 18px 44px rgb(0 0 0 / 28%);
+}
+
+.paymentStatusIcon {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 20px;
+  border: 2px solid var(--theme-gold);
+  border-radius: 50%;
+  background: rgb(214 180 94 / 10%);
+  color: var(--theme-gold);
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.paymentStatusEyebrow {
+  margin: 0 0 8px;
+  color: var(--theme-gold);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.paymentStatusCard h1 {
+  margin: 0 0 12px;
+  font-size: clamp(1.7rem, 5vw, 2.25rem);
+}
+
+.paymentStatusText {
+  margin: 0 auto;
+  max-width: 430px;
+  color: #bbb;
+  line-height: 1.6;
+}
+
+.paymentStatusReference {
+  margin: 20px 0;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.paymentStatusReference strong {
+  color: white;
+}
+
+.paymentStatusButton {
+  min-width: 180px;
+  background: var(--theme-red);
+  border: 1px solid var(--theme-red);
+  color: white;
+  font-weight: 700;
+}
+
+.paymentStatusButton:hover {
+  background: #d32b33;
+  border-color: #d32b33;
+  color: white;
+}

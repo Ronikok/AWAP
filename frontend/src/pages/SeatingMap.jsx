@@ -1,25 +1,43 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router";
-import { seats } from "../src/data/seats";
-import { fetchShowtimeById } from "../api";
+import { useParams, useSearchParams } from "react-router";
+import { startCheckout, fetchShowtimeById, fetchShowtimeSeats } from "../api";
+import ConfirmSeatsModal from "../components/ConfirmSeatsModal";
 import "../assets/seatingMap.css";
 
 export default function SeatingMap() {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [showtimeMovie, setShowtimeMovie] = useState(null);
+  const [seats, setSeats] = useState([]);
   const [showtimeError, setShowtimeError] = useState("");
+  const [paymentError, setPaymentError] = useState(() =>
+    searchParams.get("payment") === "cancelled"
+      ? searchParams.get("error") ||
+        "Payment was cancelled. Please try again."
+      : "",
+  );
+  const [isStartingPayment, setIsStartingPayment] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [email, setEmail] = useState("");
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("payment") === "cancelled") {
+      searchParams.delete("payment");
+      searchParams.delete("error");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     let active = true;
 
-    fetchShowtimeById(id)
-      .then((showtime) => {
+    Promise.all([fetchShowtimeById(id), fetchShowtimeSeats(id)])
+      .then(([showtime, showtimeSeats]) => {
         if (active) {
-          setShowtimeMovie({
-            ...showtime,
-            poster: showtime.image_url,
-          });
+          setShowtimeMovie({ ...showtime, poster: showtime.image_url });
+          setSeats(showtimeSeats);
         }
       })
       .catch((error) => {
@@ -41,224 +59,306 @@ export default function SeatingMap() {
     return `${day}.${month}.${year} ${time?.slice(0, 5) || ""}`;
   }
 
-  function toggleSeat(id) {
+  function formatEndTime() {
+    if (!showtimeMovie?.start_time) return "End time unavailable";
+
+    const durationMinutes = Number(showtimeMovie.duration_minutes);
+    if (!Number.isFinite(durationMinutes) || durationMinutes < 0) {
+      return "End time unavailable";
+    }
+
+    const start = new Date(
+      showtimeMovie.start_time.replace(" ", "T").replace(/Z$/, ""),
+    );
+    if (Number.isNaN(start.getTime())) return "End time unavailable";
+
+    const end = new Date(start.getTime() + durationMinutes * 60_000);
+    const day = String(end.getDate()).padStart(2, "0");
+    const month = String(end.getMonth() + 1).padStart(2, "0");
+    const year = end.getFullYear();
+    const hours = String(end.getHours()).padStart(2, "0");
+    const minutes = String(end.getMinutes()).padStart(2, "0");
+
+    return `${day}.${month}.${year} ${hours}:${minutes}`;
+  }
+
+  function toggleSeat(seatId) {
     setSelectedSeats((current) =>
-      current.includes(id)
-        ? current.filter((seatId) => seatId !== id)
-        : [...current, id],
+      current.includes(seatId)
+        ? current.filter((id) => id !== seatId)
+        : [...current, seatId],
     );
   }
 
-  function calculatePrice(seats) {
+  function calculatePrice(seatsToCalculate) {
     const ticketPriceCents = Math.round(
       Number(showtimeMovie?.ticket_price || 0) * 100,
     );
-    const discountedSeats = Math.floor(seats.length / 10);
-    const finalPriceCents =
-      seats.length * ticketPriceCents -
-      discountedSeats * Math.round(ticketPriceCents / 2);
-
-    return finalPriceCents / 100;
-  }
-
-  function formatPrice(price) {
-    return price.toFixed(2);
-  }
-
-  function getSeatPosition(id) {
-    return {
-      row: Math.floor((id - 1) / 10) + 1,
-      seat: ((id - 1) % 10) + 1,
-    };
-  }
-
-  function createSeatingMap(capacity) {
-    const seatsToDisplay = seats.slice(0, capacity);
-
-    return Array.from(
-      { length: Math.ceil(seatsToDisplay.length / 10) },
-      (_, rowIndex) => (
-        <div key={rowIndex} className="seatingRow">
-          {seatsToDisplay
-            .slice(rowIndex * 10, rowIndex * 10 + 10)
-            .map((seat) => {
-              const isSelected = selectedSeats.includes(seat.id);
-              if (seat.id === 13) {
-                seat.id = "VIP";
-              }
-
-              return (
-                <button
-                  key={seat.id}
-                  type="button"
-                  className="d-flex justify-content-center align-items-center rounded border-0"
-                  aria-pressed={isSelected}
-                  disabled={seat.is_client_reserved}
-                  onClick={() => toggleSeat(seat.id)}
-                  style={{
-                    background: isSelected ? "var(--theme-gold)" : "#006D1D",
-                    height: "48px",
-                    width: "48px",
-                    color: "white",
-                    margin: "8px",
-                    padding: 0,
-                  }}
-                >
-                  <p className="m-0">{seat.id}</p>
-                </button>
-              );
-            })}
-        </div>
-      ),
+    const discountedSeats = Math.floor(seatsToCalculate.length / 10);
+    return (
+      seatsToCalculate.length * ticketPriceCents -
+      discountedSeats * Math.round(ticketPriceCents / 2)
     );
   }
 
+  function formatPrice(priceInCents) {
+    return (priceInCents / 100).toFixed(2);
+  }
+
+  async function handlePayment() {
+    setPaymentError("");
+    setIsStartingPayment(true);
+
+    try {
+      const { url } = await startCheckout({
+        showtimeId: id,
+        seatIds: selectedSeats,
+        customerName,
+        email,
+        ticketCount: selectedSeats.length,
+      });
+      window.location.assign(url);
+    } catch (error) {
+      setPaymentError(error.message);
+      setIsStartingPayment(false);
+    }
+  }
+
+  function getSnakeSeatLabels(seatsToDisplay) {
+    const rowNumbers = [
+      ...new Set(seatsToDisplay.map((seat) => seat.row_number)),
+    ].sort((a, b) => a - b);
+    const labels = new Map();
+    let nextLabel = 1;
+
+    rowNumbers.forEach((rowNumber, rowIndex) => {
+      const rowSeats = seatsToDisplay
+        .filter((seat) => seat.row_number === rowNumber)
+        .sort((a, b) => a.column_position - b.column_position);
+
+      if (rowIndex % 2 === 0) {
+        rowSeats.forEach((seat) => {
+          labels.set(seat.id, nextLabel++);
+        });
+      } else {
+        rowSeats.forEach((seat, index) => {
+          labels.set(seat.id, nextLabel + rowSeats.length - index - 1);
+        });
+        nextLabel += rowSeats.length;
+      }
+    });
+
+    return labels;
+  }
+
+  function createSeatingMap() {
+    const seatsToDisplay = seats;
+    const rowNumbers = [
+      ...new Set(seatsToDisplay.map((seat) => seat.row_number)),
+    ].sort((a, b) => a - b);
+    const seatLabels = getSnakeSeatLabels(seatsToDisplay);
+
+    return rowNumbers.map((rowNumber) => (
+      <div key={rowNumber} className="seatingRow">
+        <span className="rowLabel">R{rowNumber}</span>
+        {seatsToDisplay
+          .filter((seat) => seat.row_number === rowNumber)
+          .sort((a, b) => a.column_position - b.column_position)
+          .map((seat) => {
+            const isSelected = selectedSeats.includes(seat.id);
+            const isUnavailable = seat.is_client_reserved || seat.is_reserved;
+            const seatLabel = seatLabels.get(seat.id);
+
+            return (
+              <button
+                key={seat.id}
+                type="button"
+                className={`seatButton ${isSelected ? "is-selected" : ""} ${
+                  isUnavailable ? "is-unavailable" : ""
+                }`}
+                aria-label={`Row ${seat.row_number}, seat ${seatLabel}`}
+                aria-pressed={isSelected}
+                disabled={isUnavailable}
+                onClick={() => toggleSeat(seat.id)}
+              >
+                {seatLabels.get(seat.id)}
+              </button>
+            );
+          })}
+      </div>
+    ));
+  }
+
   return (
-    <>
-      {!showtimeMovie && !showtimeError && <p>Loading showtime...</p>}
-      {showtimeError && <p className="text-danger">{showtimeError}</p>}
+    <main className="seatingPage">
+      {!showtimeMovie && !showtimeError && (
+        <p className="seatingStatus">Loading showtime...</p>
+      )}
+      {showtimeError && (
+        <p className="seatingStatus text-danger">{showtimeError}</p>
+      )}
       {showtimeMovie && (
-        <div className="container">
-          <div className="row align-items-start g-4 border border-red rounded p-3 mx-0 my-3">
-            <div className="col-lg-8">
-              <div id="mapWrapper" className="row justify-content-center">
-                <div
-                  className="text-center col rounded"
-                  style={{
-                    background: "#212529",
-                    margin: "16px auto 50px",
-                    padding: "12px",
-                    flex: "0 0 80%",
-                  }}
-                >
-                  SCREEN
-                </div>
-                <div
-                  className="d-flex justify-content-center overflow-hidden"
-                  style={{ width: "100%", overflowX: "auto" }}
-                >
-                  <div
-                    className="border border-red d-flex flex-column justify-content-center align-items-center flex-shrink-0"
-                    id="walkway-left"
-                    style={{ width: "100px" }}
-                  >
-                    <div className="d-flex flex-column align-items-center">
-                      <span aria-label="In">&#8593;</span>
-                      <span>In</span>
-                    </div>
-                    <div className="d-flex flex-column align-items-center">
-                      <span>Out</span>
-                      <span aria-label="Out">&#8595;</span>
-                    </div>
-                  </div>
-                  <div
-                    id="seatingwrapper"
-                    className="text-center overflow-visible flex-shrink-0"
-                  >
-                    {createSeatingMap(200)}
-                  </div>
-                  <div
-                    className="border border-red d-flex flex-column justify-content-center align-items-center flex-shrink-0"
-                    id="walkway-right"
-                    style={{ width: "100px" }}
-                  >
-                    <div className="d-flex flex-column align-items-center">
-                      <span aria-label="In">&#8593;</span>
-                      <span>In</span>
-                    </div>
-                    <div className="d-flex flex-column align-items-center">
-                      <span>Out</span>
-                      <span aria-label="Out">&#8595;</span>
-                    </div>
-                  </div>
-                </div>
+        <section className="seatingLayout">
+          <div className="seatingPanel p-3 p-md-4 overflow-hidden">
+            <div className="screen" aria-label="Cinema screen">
+              <span>SCREEN</span>
+            </div>
+            <div className="seatingScroller">
+              <div className="aisle aisleLeft" aria-label="Entrance exit aisle">
+                <span className="aisleSign">Entrance / Exit Aisle</span>
+              </div>
+              <div id="seatingwrapper" className="seatingGrid">
+                {seats.length > 0 ? (
+                  createSeatingMap()
+                ) : (
+                  <p className="noSeatsSelected">No seats available</p>
+                )}
+              </div>
+              <div
+                className="aisle aisleRight"
+                aria-label="Entrance exit aisle"
+              >
+                <span className="aisleSign">Entrance / Exit Aisle</span>
               </div>
             </div>
-            <aside className="col-lg-4">
-              <div className="p-4 h-100">
-                {showtimeMovie.poster && (
-                  <div className="posterWrapper">
-                    <img src={showtimeMovie.poster} alt={showtimeMovie.title} />
-                  </div>
-                )}
-                {!showtimeMovie.poster && (
-                  <div
-                    className="rounded mb-3 d-flex align-items-center justify-content-center"
-                    style={{
-                      height: "240px",
-                      background: "#212529",
-                      color: "white",
-                    }}
-                  >
-                    {showtimeMovie.title}
-                  </div>
-                )}
-                <h2 className="h4">{showtimeMovie.title}</h2>
-                {showtimeMovie.description && (
-                  <p>{showtimeMovie.description}</p>
-                )}
-                {showtimeMovie.duration_minutes && (
-                  <p className="mb-1">
-                    Duration: {showtimeMovie.duration_minutes} min
-                  </p>
-                )}
-                {showtimeMovie.age_rating && (
-                  <p className="mb-1">Age rating: {showtimeMovie.age_rating}</p>
-                )}
-                {showtimeMovie.start_time && (
-                  <p className="mb-1">
-                    {formatShowtime(showtimeMovie.start_time)}
-                  </p>
-                )}
-                {showtimeMovie.ticket_price != null && (
-                  <p className="mb-1">
-                    Ticket price: {showtimeMovie.ticket_price} €
-                  </p>
-                )}
-                <hr />
-                <h3 className="h5">Selected seats</h3>
-                {selectedSeats.length > 0 ? (
-                  <div>
-                    <div className="selectedList">
-                      <ul className="p-0">
-                        {[...selectedSeats]
-                          .sort((a, b) => a - b)
-                          .map((id) => {
-                            const position = getSeatPosition(id);
-
-                            return (
-                              <li key={id} className="list-group-item">
-                                Row {position.row}, seat {id}
-                              </li>
-                            );
-                          })}
-                      </ul>
-                    </div>
-                    {selectedSeats.length > 20 ? (
-                      <p>and {selectedSeats.length - 20} more</p>
-                    ) : null}{" "}
-                  </div>
-                ) : (
-                  <p>No seats selected</p>
-                )}
-                <p className="mb-0">
-                  Total seats: <strong>{selectedSeats.length}</strong>
-                </p>
-                <p className="mb-0">
-                  Total price:{" "}
-                  <strong>{formatPrice(calculatePrice(selectedSeats))}€</strong>
-                </p>
-                <button
-                  type="button"
-                  className="btn confirmSeatsButton px-2 mt-3"
-                >
-                  Confirm seats
-                </button>
-              </div>
-            </aside>
+            <div
+              className="d-flex flex-wrap justify-content-center gap-3 mt-3 small text-secondary"
+              aria-label="Seat legend"
+            >
+              <span className="d-flex align-items-center gap-2">
+                <i className="legendSeat"></i>Available
+              </span>
+              <span className="d-flex align-items-center gap-2">
+                <i className="legendSeat legendSelected"></i>Selected
+              </span>
+              <span className="d-flex align-items-center gap-2">
+                <i className="legendSeat legendUnavailable"></i>Unavailable
+              </span>
+            </div>
           </div>
-        </div>
+
+          <aside className="bookingPanel p-3">
+            {showtimeMovie.poster ? (
+              <div className="posterWrapper">
+                <img src={showtimeMovie.poster} alt={showtimeMovie.title} />
+              </div>
+            ) : (
+              <div className="posterPlaceholder">{showtimeMovie.title}</div>
+            )}
+            <h1 className="h4 text-center mb-2">{showtimeMovie.title}</h1>
+            {showtimeMovie.description && (
+              <p className="text-secondary small text-center mb-3">
+                {showtimeMovie.description}
+              </p>
+            )}
+            <dl className="mb-0 border-top border-secondary">
+              {showtimeMovie.duration_minutes && (
+                <div className="d-flex justify-content-between gap-2 py-1 border-bottom border-secondary">
+                  <dt className="text-secondary fw-normal">Duration</dt>
+                  <dd className="mb-0">{showtimeMovie.duration_minutes} min</dd>
+                </div>
+              )}
+              {showtimeMovie.age_rating && (
+                <div className="d-flex justify-content-between gap-2 py-1 border-bottom border-secondary">
+                  <dt className="text-secondary fw-normal">Age rating</dt>
+                  <dd className="mb-0">{showtimeMovie.age_rating}</dd>
+                </div>
+              )}
+              {showtimeMovie.start_time && (
+                <div className="d-flex justify-content-between gap-2 py-1 border-bottom border-secondary">
+                  <dt className="text-secondary fw-normal">Showtime</dt>
+                  <dd className="mb-0 text-end">
+                    {formatShowtime(showtimeMovie.start_time)}
+                  </dd>
+                </div>
+              )}
+              {showtimeMovie.ticket_price != null && (
+                <div className="d-flex justify-content-between gap-2 py-1 border-bottom border-secondary">
+                  <dt className="text-secondary fw-normal">Ticket</dt>
+                  <dd className="mb-0">{showtimeMovie.ticket_price} €</dd>
+                </div>
+              )}
+            </dl>
+
+            <section className="mt-3">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <h2 className="h6 mb-0">Selected seats</h2>
+                <span
+                  className="badge rounded-pill"
+                  style={{ background: "var(--theme-red)" }}
+                >
+                  {selectedSeats.length}
+                </span>
+              </div>
+              {selectedSeats.length > 0 ? (
+                <div
+                  className="d-flex flex-wrap gap-2 overflow-y-auto"
+                  style={{ maxHeight: "92px" }}
+                >
+                  {[...selectedSeats]
+                    .sort((a, b) => a - b)
+                    .map((id) => {
+                      const seat = seats.find((item) => item.id === id);
+                      if (!seat) return null;
+                      const seatLabel = getSnakeSeatLabels(seats).get(id);
+                      return (
+                        <span
+                          key={id}
+                          className="badge rounded-pill border border-secondary fw-normal"
+                        >
+                          R{seat.row_number} · S{seatLabel}
+                        </span>
+                      );
+                    })}
+                </div>
+              ) : (
+                <p className="small text-secondary mb-0">
+                  Choose seats from the map
+                </p>
+              )}
+            </section>
+
+            <div className="d-flex justify-content-between align-items-baseline mt-3 pt-3 border-top border-secondary">
+              <span>Total</span>
+              <strong className="fs-4" style={{ color: "var(--theme-gold)" }}>
+                {formatPrice(calculatePrice(selectedSeats))} €
+              </strong>
+            </div>
+            <button
+              type="button"
+              className="btn w-100 mt-3 text-white confirmSeatsButton"
+              disabled={selectedSeats.length === 0 || isStartingPayment}
+              onClick={() => setShowConfirmation(true)}
+            >
+              {isStartingPayment ? "Opening payment..." : "Continue"}
+            </button>
+            {paymentError && <p className="text-danger mt-3">{paymentError}</p>}
+          </aside>
+        </section>
       )}
-    </>
+
+      {showConfirmation && (
+        <ConfirmSeatsModal
+          showtime={{
+            movieTitle: showtimeMovie?.title,
+            startTime: showtimeMovie?.start_time,
+            durationMinutes: showtimeMovie?.duration_minutes,
+          }}
+          formatShowtime={formatShowtime}
+          formatEndTime={formatEndTime}
+          seats={seats}
+          seatLabels={getSnakeSeatLabels(seats)}
+          selectedSeats={selectedSeats}
+          customerName={customerName}
+          email={email}
+          onCustomerNameChange={(event) => setCustomerName(event.target.value)}
+          onEmailChange={(event) => setEmail(event.target.value)}
+          onConfirm={handlePayment}
+          isStartingPayment={isStartingPayment}
+          paymentError={paymentError}
+          onClose={() => setShowConfirmation(false)}
+        />
+      )}
+    </main>
   );
 }
