@@ -6,9 +6,7 @@ export default function PaymentSuccess() {
   const reservationId = searchParams.get("reservation_id");
   const sessionId = searchParams.get("session_id");
   const ticketUrl =
-    reservationId && sessionId
-      ? getTicketUrl(reservationId, sessionId)
-      : null;
+    reservationId && sessionId ? getTicketUrl(reservationId, sessionId) : null;
 
   return (
     <main className="paymentStatusPage">
@@ -26,11 +24,7 @@ export default function PaymentSuccess() {
         )}
         <div className="d-flex justify-content-center flex-wrap gap-2">
           {ticketUrl && (
-            <a
-              href={ticketUrl}
-              className="btn paymentStatusButton"
-              download
-            >
+            <a href={ticketUrl} className="btn paymentStatusButton" download>
               Download ticket
             </a>
           )}

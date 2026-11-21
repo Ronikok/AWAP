@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { startCheckout, fetchShowtimeById, fetchShowtimeSeats } from "../api";
 import ConfirmSeatsModal from "../components/ConfirmSeatsModal";
+import { useAuth } from "../context/AuthContext";
 import "../assets/seatingMap.css";
 
 export default function SeatingMap() {
@@ -13,14 +14,15 @@ export default function SeatingMap() {
   const [showtimeError, setShowtimeError] = useState("");
   const [paymentError, setPaymentError] = useState(() =>
     searchParams.get("payment") === "cancelled"
-      ? searchParams.get("error") ||
-        "Payment was cancelled. Please try again."
+      ? searchParams.get("error") || "Payment was cancelled. Please try again."
       : "",
   );
   const [isStartingPayment, setIsStartingPayment] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [email, setEmail] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const { user, loading } = useAuth();
+  const [prefilledInfo, setPrefilledInfo] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("payment") === "cancelled") {
@@ -189,6 +191,19 @@ export default function SeatingMap() {
     ));
   }
 
+  function openConfirmationModal() {
+    if (!loading && user) {
+      setCustomerName(user.name);
+      setEmail(user.email);
+      setPrefilledInfo(true);
+    } else if (prefilledInfo) {
+      setCustomerName("");
+      setEmail("");
+      setPrefilledInfo(false);
+    }
+    setShowConfirmation(true);
+  }
+
   return (
     <main className="seatingPage">
       {!showtimeMovie && !showtimeError && (
@@ -328,7 +343,7 @@ export default function SeatingMap() {
               type="button"
               className="btn w-100 mt-3 text-white confirmSeatsButton"
               disabled={selectedSeats.length === 0 || isStartingPayment}
-              onClick={() => setShowConfirmation(true)}
+              onClick={() => openConfirmationModal()}
             >
               {isStartingPayment ? "Opening payment..." : "Continue"}
             </button>

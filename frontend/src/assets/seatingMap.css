@@ -251,6 +251,15 @@
   color: white;
 }
 
+.confirmSeatsModal .form-control:disabled,
+.confirmSeatsModal .form-control[disabled] {
+  background-color: #333;
+  color: #999;
+  border-color: #555;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
 .confirmSeatsButton {
   background: var(--theme-red);
   border: 1px solid var(--theme-red);

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import { useAuth } from "../context/AuthContext";
 
 export default function ConfirmSeatsModal({
   showtime,
@@ -18,6 +19,7 @@ export default function ConfirmSeatsModal({
   onClose,
 }) {
   const [page, setPage] = useState(1);
+  const { user } = useAuth();
 
   return (
     <>
@@ -64,7 +66,7 @@ export default function ConfirmSeatsModal({
                   <div className="pb-3 border-bottom border-secondary">
                     <h2 className="h5">{showtime.movieTitle}</h2>
                     <p className="confirmSeatsModal__showtime mb-0">
-                      {formatShowtime(showtime.startTime)} – {formatEndTime()}
+                      {formatShowtime(showtime.startTime)} - {formatEndTime()}
                     </p>
                   </div>
                   <div className="mt-3 p-3 rounded border-start border-3 border-danger">
@@ -107,6 +109,7 @@ export default function ConfirmSeatsModal({
                         value={customerName}
                         maxLength={100}
                         onChange={onCustomerNameChange}
+                        disabled={Boolean(user)}
                       />
                     </div>
                     <div className="mb-0">
@@ -120,24 +123,30 @@ export default function ConfirmSeatsModal({
                         placeholder="Enter your email address"
                         value={email}
                         onChange={onEmailChange}
+                        disabled={Boolean(user)}
                       />
                     </div>
                   </div>
-                  <div className="d-flex justify-content-center align-items-center flex-wrap gap-2 mt-3 pt-3 border-top border-secondary small text-secondary">
-                    <span>Want to save your tickets?</span>
-                    <Link to="/login" className="confirmSeatsModal__loginLink">
-                      Log in
-                    </Link>
-                    <span className="confirmSeatsModal__accountDivider">
-                      or
-                    </span>
-                    <Link
-                      to="/register"
-                      className="confirmSeatsModal__loginLink"
-                    >
-                      Sign up
-                    </Link>
-                  </div>
+                  {!user ? (
+                    <div className="d-flex justify-content-center align-items-center flex-wrap gap-2 mt-3 pt-3 border-top border-secondary small text-secondary">
+                      <span>Want to save your tickets?</span>
+                      <Link
+                        to="/login"
+                        className="confirmSeatsModal__loginLink"
+                      >
+                        Log in
+                      </Link>
+                      <span className="confirmSeatsModal__accountDivider">
+                        or
+                      </span>
+                      <Link
+                        to="/register"
+                        className="confirmSeatsModal__loginLink"
+                      >
+                        Sign up
+                      </Link>
+                    </div>
+                  ) : null}
                   {paymentError && (
                     <p className="text-danger mb-0" role="alert">
                       {paymentError}
