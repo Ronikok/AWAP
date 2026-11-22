@@ -7,7 +7,6 @@ export default function ConfirmSeatsModal({
   formatShowtime,
   formatEndTime,
   seats,
-  seatLabels,
   selectedSeats,
   customerName,
   email,
@@ -84,7 +83,9 @@ export default function ConfirmSeatsModal({
                               className="badge rounded-pill border border-secondary fw-normal"
                             >
                               Row {seat.row_number}, seat{" "}
-                              {seatLabels.get(seatId)}
+                              {seat.seat_number === 13
+                                ? "VIP"
+                                : seat.seat_number}
                             </span>
                           );
                         })}

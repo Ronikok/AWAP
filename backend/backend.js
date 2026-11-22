@@ -362,7 +362,20 @@ app.post("/api/checkout-sessions", async (req, res) => {
         [showtime.room_id, uniqueSeatIds],
       );
 
-      if (seatResult.rows.length !== uniqueSeatIds.length) {
+      const vipSeatResult = await pool.query(
+        `SELECT id
+         FROM seats
+         WHERE room_id = $1
+          AND id = ANY($2::int[])
+          AND seat_number = 13
+          AND is_client_reserved = FALSE`,
+        [showtime.room_id, uniqueSeatIds],
+      );
+
+      if (
+        seatResult.rows.length !== uniqueSeatIds.length ||
+        vipSeatResult.rows.length > 0
+      ) {
         await client.query("ROLLBACK");
         return res.status(409).json({ error: "One or more seats are invalid" });
       }
@@ -426,7 +439,7 @@ app.post("/api/checkout-sessions", async (req, res) => {
               product_data: { name: `${showtime.title} tickets` },
               unit_amount: totalCents,
             },
-            quantity: uniqueSeatIds.length,
+            quantity: 1,
           },
         ],
         success_url: `${frontendUrl}/payment-success?reservation_id=${reservationId}&session_id={CHECKOUT_SESSION_ID}`,
@@ -588,11 +601,7 @@ app.get("/api/reservations/:id/ticket", async (req, res) => {
              AND status = 'pending_payment'
              AND expires_at > NOW()
            RETURNING id`,
-          [
-            sessionId,
-            checkoutSession.payment_intent || null,
-            reservationId,
-          ],
+          [sessionId, checkoutSession.payment_intent || null, reservationId],
         );
 
         if (paidResult.rows.length > 0) {
@@ -648,9 +657,7 @@ app.get("/api/reservations/:id/ticket", async (req, res) => {
     });
   }
 
-  if (
-    reservationResult.rows[0].stripe_checkout_session_id !== sessionId
-  ) {
+  if (reservationResult.rows[0].stripe_checkout_session_id !== sessionId) {
     return res.status(404).json({
       error: "Ticket not found",
       reason: "Session mismatch",

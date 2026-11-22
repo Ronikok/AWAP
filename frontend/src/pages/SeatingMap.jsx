@@ -126,64 +126,38 @@ export default function SeatingMap() {
     }
   }
 
-  function getSnakeSeatLabels(seatsToDisplay) {
-    const rowNumbers = [
-      ...new Set(seatsToDisplay.map((seat) => seat.row_number)),
-    ].sort((a, b) => a - b);
-    const labels = new Map();
-    let nextLabel = 1;
-
-    rowNumbers.forEach((rowNumber, rowIndex) => {
-      const rowSeats = seatsToDisplay
-        .filter((seat) => seat.row_number === rowNumber)
-        .sort((a, b) => a.column_position - b.column_position);
-
-      if (rowIndex % 2 === 0) {
-        rowSeats.forEach((seat) => {
-          labels.set(seat.id, nextLabel++);
-        });
-      } else {
-        rowSeats.forEach((seat, index) => {
-          labels.set(seat.id, nextLabel + rowSeats.length - index - 1);
-        });
-        nextLabel += rowSeats.length;
-      }
-    });
-
-    return labels;
-  }
-
   function createSeatingMap() {
-    const seatsToDisplay = seats;
-    const rowNumbers = [
-      ...new Set(seatsToDisplay.map((seat) => seat.row_number)),
-    ].sort((a, b) => a - b);
-    const seatLabels = getSnakeSeatLabels(seatsToDisplay);
+    const rowNumbers = [...new Set(seats.map((seat) => seat.row_number))].sort(
+      (a, b) => a - b,
+    );
 
-    return rowNumbers.map((rowNumber) => (
+    return rowNumbers.map((rowNumber, rowIndex) => (
       <div key={rowNumber} className="seatingRow">
         <span className="rowLabel">R{rowNumber}</span>
-        {seatsToDisplay
+
+        {seats
           .filter((seat) => seat.row_number === rowNumber)
-          .sort((a, b) => a.column_position - b.column_position)
+          .sort((a, b) =>
+            rowIndex % 2 === 0
+              ? a.column_position - b.column_position
+              : b.column_position - a.column_position,
+          )
           .map((seat) => {
+            const isVip = seat.seat_number === 13;
             const isSelected = selectedSeats.includes(seat.id);
             const isUnavailable = seat.is_client_reserved || seat.is_reserved;
-            const seatLabel = seatLabels.get(seat.id);
 
             return (
               <button
                 key={seat.id}
                 type="button"
-                className={`seatButton ${isSelected ? "is-selected" : ""} ${
-                  isUnavailable ? "is-unavailable" : ""
-                }`}
-                aria-label={`Row ${seat.row_number}, seat ${seatLabel}`}
+                className={`seatButton ${isSelected ? "is-selected" : ""}`}
+                aria-label={`Row ${seat.row_number}, seat ${seat.seat_number}`}
                 aria-pressed={isSelected}
-                disabled={isUnavailable}
+                disabled={isUnavailable || isVip}
                 onClick={() => toggleSeat(seat.id)}
               >
-                {seatLabels.get(seat.id)}
+                {isVip ? "VIP" : seat.seat_number}
               </button>
             );
           })}
@@ -315,13 +289,12 @@ export default function SeatingMap() {
                     .map((id) => {
                       const seat = seats.find((item) => item.id === id);
                       if (!seat) return null;
-                      const seatLabel = getSnakeSeatLabels(seats).get(id);
                       return (
                         <span
                           key={id}
                           className="badge rounded-pill border border-secondary fw-normal"
                         >
-                          R{seat.row_number} · S{seatLabel}
+                          R{seat.row_number} · S{seat.seat_number}
                         </span>
                       );
                     })}
@@ -362,7 +335,6 @@ export default function SeatingMap() {
           formatShowtime={formatShowtime}
           formatEndTime={formatEndTime}
           seats={seats}
-          seatLabels={getSnakeSeatLabels(seats)}
           selectedSeats={selectedSeats}
           customerName={customerName}
           email={email}
