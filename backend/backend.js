@@ -6,6 +6,7 @@ import PDFDocument from "pdfkit";
 import cookieParser from "cookie-parser";
 import { createAuth } from "./auth.js";
 import { createAdminRouter } from "./admin.js";
+import { createOwnerRouter, ensureFeaturedColumns } from "./owner.js";
 
 const { Pool } = pg;
 
@@ -63,6 +64,7 @@ app.use(
 const { authRouter, requireAuth, requireRole } = createAuth(pool);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", createAdminRouter(pool, requireAuth, requireRole));
+app.use("/api/admin", createOwnerRouter(pool, requireAuth, requireRole));
 
 app.get("/api/healthz", (_req, res) => res.json({ status: "ok" }));
 app.get("/api/readyz", (_req, res) => res.json({ status: "ready" }));
@@ -93,6 +95,32 @@ app.get("/api/dbTables", async (_req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to fetch database tables" });
+  }
+});
+
+// Movies the owner has put on the front page, in the owner's chosen order
+app.get("/api/movies/featured", async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        id,
+        title,
+        duration_minutes,
+        trailer_url,
+        image_url,
+        description,
+        age_rating
+       FROM movies
+       WHERE featured = TRUE
+       ORDER BY featured_position ASC NULLS LAST, title ASC`,
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Failed to fetch featured movies:", error);
+    res.status(500).json({
+      error: "Failed to fetch featured movies",
+    });
   }
 });
 
@@ -178,6 +206,7 @@ app.get("/api/showtimes", async (req, res) => {
         m.title,
         m.image_url,
         s.start_time,
+        to_char(s.start_time, 'YYYY-MM-DD"T"HH24:MI') AS start_local,
         s.ticket_price,
         r.id AS room_id,
         t.name AS theatre_name,
@@ -710,6 +739,9 @@ app.use((error, _req, res, next) => {
   console.error(error);
   res.status(500).json({ error: "internal server error" });
 });
+
+// Make sure the front page columns exist before taking requests
+await ensureFeaturedColumns(pool);
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`Backend listening on port ${port}`);

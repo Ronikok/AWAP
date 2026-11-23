@@ -24,7 +24,7 @@ export default function CinemaPage({ city }) {
 
         setShowtimes(
           data.filter(
-            (showtime) => new Date(showtime.start_time) > new Date()
+            (showtime) => new Date(showtime.start_local) > new Date()
           )
         );
       } catch (err) {
@@ -96,7 +96,7 @@ export default function CinemaPage({ city }) {
           )}
 
           <p>
-            {new Date(showtime.start_time).toLocaleString("fi-FI")}
+            {new Date(showtime.start_local).toLocaleString("fi-FI")}
           </p>
 
           <p>Hinta: {showtime.ticket_price} €</p>

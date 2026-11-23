@@ -8,7 +8,7 @@ export default function Home() {
   useEffect(() => {
     async function loadMovies() {
       try {
-        const response = await fetch("/api/movies");
+        const response = await fetch("/api/movies/featured");
 
         if (!response.ok) {
           throw new Error("Failed to load movies");

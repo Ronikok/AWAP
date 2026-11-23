@@ -144,7 +144,9 @@ CREATE TABLE movies (
 	trailer_url TEXT,
 	image_url TEXT,
 	description TEXT,
-	age_rating VARCHAR(20)
+	age_rating VARCHAR(20),
+	featured BOOLEAN NOT NULL DEFAULT FALSE,
+	featured_position INTEGER
 );
 
 CREATE TABLE showtimes (
@@ -201,13 +203,17 @@ INSERT INTO movies (
     duration_minutes,
     image_url,
     description,
-    age_rating
+    age_rating,
+    featured,
+    featured_position
 ) VALUES (
     'Placeholder Movie',
     120,
     'https://upload.wikimedia.org/wikipedia/fi/8/84/Oppenheimer-poster.jpg?utm_source=fi.wikipedia.org&utm_campaign=index&utm_content=original',
     'Movie details will appear here.',
-    'PG-13'
+    'PG-13',
+    TRUE,
+    1
 );
 
 --placeholder showtime for testing

@@ -78,3 +78,47 @@ export async function startCheckout({
     }),
   );
 }
+
+// ---- Owner: front page movies + showtimes (owner login required) ----
+
+async function send(method, path, body) {
+  return readJson(
+    await fetch(`${API_ROOT}${path}`, {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+  );
+}
+
+export function fetchFeaturedMovies() {
+  return send("GET", "/movies/featured");
+}
+
+export function fetchOwnerMovies() {
+  return send("GET", "/admin/movies");
+}
+
+export function saveFeaturedMovies(movieIds) {
+  return send("PUT", "/admin/featured", { movieIds });
+}
+
+export function fetchOwnerRooms() {
+  return send("GET", "/admin/rooms");
+}
+
+export function fetchOwnerShowtimes() {
+  return send("GET", "/admin/showtimes");
+}
+
+export function createShowtime(showtime) {
+  return send("POST", "/admin/showtimes", showtime);
+}
+
+export function updateShowtime(id, showtime) {
+  return send("PUT", `/admin/showtimes/${id}`, showtime);
+}
+
+export function deleteShowtime(id) {
+  return send("DELETE", `/admin/showtimes/${id}`);
+}
