@@ -197,6 +197,22 @@ CREATE TABLE processed_stripe_events (
 
 -- TODO: waiting list, company reservations
 
+CREATE TABLE company_booking_requests (
+    id SERIAL PRIMARY KEY,
+    company_name VARCHAR(150) NOT NULL,
+    contact_name VARCHAR(100) NOT NULL,
+    contact_email VARCHAR(255) NOT NULL,
+    city VARCHAR(20) NOT NULL
+        CHECK (city IN ('Oulu', 'Tampere')),
+    preferred_date DATE NOT NULL,
+    guest_count INTEGER NOT NULL
+        CHECK (guest_count BETWEEN 1 AND 200),
+    additional_requests TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 --placeholder movie for testing
 INSERT INTO movies (
     title,
