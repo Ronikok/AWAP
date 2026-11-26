@@ -20,6 +20,8 @@ export default function Navbar() {
         <NavLink to="/oulu">Oulu</NavLink>
 
         <NavLink to="/tampere">Tampere</NavLink>
+
+        {user?.role === "owner" && <NavLink to="/owner">Hallinta</NavLink>}
       </nav>
 
       <div className="rio-nav-icons">

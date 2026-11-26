@@ -8,6 +8,7 @@ import Navbar from "./components/navbar.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import PaymentSuccess from "./pages/PaymentSuccess.jsx";
 import CinemaPage from "./pages/CinemaPage.jsx";
+import OwnerDashboard from "./pages/OwnerDashboard.jsx";
 
 function App() {
   return (
@@ -26,6 +27,11 @@ function App() {
         {/* käyttäjät */}
         <Route element={<ProtectedRoute />}>
           {/* e.g. <Route path="/my-reservations" element={<MyReservations />} /> */}
+        </Route>
+
+        {/* omistaja */}
+        <Route element={<ProtectedRoute roles={["owner"]} />}>
+          <Route path="/owner" element={<OwnerDashboard />} />
         </Route>
 
         {/* henkilökunta */}

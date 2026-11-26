@@ -6,6 +6,7 @@ import PDFDocument from "pdfkit";
 import cookieParser from "cookie-parser";
 import { createAuth } from "./auth.js";
 import { createAdminRouter } from "./admin.js";
+import { createOwnerRouter, ensureFeaturedColumns } from "./owner.js";
 
 const { Pool } = pg;
 
@@ -105,6 +106,7 @@ app.use(
 const { authRouter, requireAuth, requireRole } = createAuth(pool);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", createAdminRouter(pool, requireAuth, requireRole));
+app.use("/api/admin", createOwnerRouter(pool, requireAuth, requireRole));
 
 app.get("/api/healthz", (_req, res) => res.json({ status: "ok" }));
 app.get("/api/readyz", (_req, res) => res.json({ status: "ready" }));
@@ -135,6 +137,32 @@ app.get("/api/dbTables", async (_req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to fetch database tables" });
+  }
+});
+
+// Movies the owner has put on the front page, in the owner's chosen order
+app.get("/api/movies/featured", async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        id,
+        title,
+        duration_minutes,
+        trailer_url,
+        image_url,
+        description,
+        age_rating
+       FROM movies
+       WHERE featured = TRUE
+       ORDER BY featured_position ASC NULLS LAST, title ASC`,
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Failed to fetch featured movies:", error);
+    res.status(500).json({
+      error: "Failed to fetch featured movies",
+    });
   }
 });
 
@@ -220,6 +248,7 @@ app.get("/api/showtimes", async (req, res) => {
         m.title,
         m.image_url,
         s.start_time,
+        to_char(s.start_time, 'YYYY-MM-DD"T"HH24:MI') AS start_local,
         s.ticket_price,
         r.id AS room_id,
         t.name AS theatre_name,
@@ -914,7 +943,7 @@ app.get("/api/reservations/:id/ticket", async (req, res) => {
   pdf.end();
 });
 
-app.get("api/getRoomCapacity", async (req, res) => {
+app.get("/api/getRoomCapacity", async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT capacity FROM rooms WHERE id = ${req}`,
@@ -926,10 +955,92 @@ app.get("api/getRoomCapacity", async (req, res) => {
   }
 });
 
+
+app.post("/api/company-bookings", async (req, res) => {
+  const {
+    company_name,
+    contact_name,
+    contact_email,
+    city,
+    preferred_date,
+    guest_count,
+    additional_requests,
+  } = req.body ?? {};
+
+  if (
+    typeof company_name !== "string" ||
+    !company_name.trim() ||
+    company_name.length > 150 ||
+    typeof contact_name !== "string" ||
+    !contact_name.trim() ||
+    contact_name.length > 100 ||
+    typeof contact_email !== "string" ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact_email) ||
+    contact_email.length > 255 ||
+    !["Oulu", "Tampere"].includes(city) ||
+    typeof preferred_date !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(preferred_date) ||
+    !Number.isInteger(Number(guest_count)) ||
+    Number(guest_count) < 1 ||
+    Number(guest_count) > 200 ||
+    (additional_requests != null &&
+      (typeof additional_requests !== "string" ||
+        additional_requests.length > 5000))
+  ) {
+    return res.status(400).json({
+      error: "Please provide valid booking details.",
+    });
+  }
+
+  const date = new Date(`${preferred_date}T00:00:00Z`);
+
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.toISOString().slice(0, 10) !== preferred_date
+  ) {
+    return res.status(400).json({
+      error: "Invalid preferred date.",
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO company_booking_requests
+       (company_name, contact_name, contact_email, city,
+        preferred_date, guest_count, additional_requests)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, status`,
+      [
+        company_name.trim(),
+        contact_name.trim(),
+        contact_email.trim(),
+        city,
+        preferred_date,
+        Number(guest_count),
+        additional_requests?.trim() || null,
+      ]
+    );
+
+    res.status(201).json({
+      message: "Booking request submitted successfully.",
+      booking: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Company booking error:", error);
+    res.status(500).json({
+      error: "Failed to submit booking request.",
+    });
+  }
+});
+
+
 app.use((error, _req, res, next) => {
   console.error(error);
   res.status(500).json({ error: "internal server error" });
 });
+
+// Make sure the front page columns exist before taking requests
+await ensureFeaturedColumns(pool);
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`Backend listening on port ${port}`);

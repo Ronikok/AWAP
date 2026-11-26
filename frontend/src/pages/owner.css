@@ -1,0 +1,289 @@
+.owner-page {
+  padding: 45px 0 80px;
+  color: #ffffff;
+  min-height: 75vh;
+}
+
+.owner-page h1 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 36px;
+  margin: 0 0 25px;
+}
+
+.owner-page h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  margin: 0 0 16px;
+}
+
+.owner-page h3 {
+  font-size: 16px;
+  text-transform: capitalize;
+  color: var(--theme-gold);
+  margin: 0 0 8px;
+}
+
+/* Tabs */
+.owner-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid var(--theme-red);
+  margin-bottom: 30px;
+}
+
+.owner-tab {
+  background: none;
+  border: none;
+  color: #cfcfcf;
+  font-size: 18px;
+  padding: 12px 22px;
+  cursor: pointer;
+  border-radius: 6px 6px 0 0;
+}
+
+.owner-tab:hover {
+  color: var(--theme-gold);
+}
+
+.owner-tab.active {
+  background-color: var(--theme-red);
+  color: white;
+}
+
+.owner-hint {
+  color: #cfcfcf;
+  margin: 0 0 20px;
+}
+
+/* Two-column featured editor */
+.owner-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  align-items: start;
+}
+
+.owner-panel,
+.owner-form {
+  background-color: #262626;
+  border: 1px solid #383838;
+  border-radius: 8px;
+  padding: 22px;
+}
+
+.owner-empty {
+  color: #aaaaaa;
+  margin: 8px 0;
+}
+
+/* Rows */
+.owner-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.owner-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background-color: #1e1e1e;
+  border: 1px solid #383838;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.owner-row-editing {
+  border-color: var(--theme-gold);
+}
+
+.owner-row-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.owner-row-title small {
+  color: #aaaaaa;
+  font-size: 13px;
+}
+
+.owner-row-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.owner-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  min-width: 52px;
+}
+
+.owner-thumb {
+  width: 38px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.owner-thumb-empty {
+  background-color: #d9d9d9;
+}
+
+/* Buttons */
+.owner-page button {
+  font-size: 14px;
+  padding: 7px 12px;
+  border-radius: 4px;
+  border: 1px solid #555555;
+  background-color: #2f2f2f;
+  color: white;
+  cursor: pointer;
+}
+
+.owner-page button:hover:not(:disabled) {
+  border-color: var(--theme-gold);
+}
+
+.owner-page button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.owner-page .owner-primary {
+  background-color: var(--theme-red);
+  border-color: var(--theme-red);
+  font-size: 16px;
+  font-weight: 600;
+  padding: 11px 20px;
+}
+
+.owner-page .owner-primary:hover:not(:disabled) {
+  background-color: #cf2830;
+  border-color: #cf2830;
+}
+
+.owner-page .owner-danger:hover:not(:disabled) {
+  border-color: #ff6b6b;
+  color: #ff6b6b;
+}
+
+.owner-page .owner-tab {
+  border: none;
+  background: none;
+  font-size: 18px;
+  padding: 12px 22px;
+}
+
+.owner-page .owner-tab.active {
+  background-color: var(--theme-red);
+}
+
+/* Save bar + messages */
+.owner-savebar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.owner-unsaved {
+  color: var(--theme-gold);
+}
+
+.owner-success {
+  color: #7bd88f;
+}
+
+.owner-error {
+  color: #ff6b6b;
+}
+
+/* Form + inputs */
+.owner-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 40px;
+  max-width: 640px;
+}
+
+.owner-form label {
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+.owner-form-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.owner-form-split > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.owner-page input,
+.owner-page select {
+  padding: 10px 12px;
+  font-size: 16px;
+  border: 1px solid #383838;
+  border-radius: 4px;
+  background-color: #2a2a2a;
+  color: white;
+  min-width: 0;
+}
+
+.owner-page input:focus,
+.owner-page select:focus {
+  outline: 2px solid var(--theme-gold);
+  border-color: transparent;
+}
+
+.owner-search {
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+/* Showtimes list */
+.owner-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #8e5053;
+}
+
+.owner-list-header h2 {
+  margin: 0;
+}
+
+.owner-day {
+  margin-bottom: 24px;
+}
+
+@media (max-width: 800px) {
+  .owner-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .owner-form-split {
+    grid-template-columns: 1fr;
+  }
+
+  .owner-row {
+    flex-wrap: wrap;
+  }
+}

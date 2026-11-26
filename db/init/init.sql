@@ -144,7 +144,9 @@ CREATE TABLE movies (
 	trailer_url TEXT,
 	image_url TEXT,
 	description TEXT,
-	age_rating VARCHAR(20)
+	age_rating VARCHAR(20),
+	featured BOOLEAN NOT NULL DEFAULT FALSE,
+	featured_position INTEGER
 );
 
 CREATE TABLE showtimes (
@@ -197,19 +199,39 @@ CREATE TABLE processed_stripe_events (
 	processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE company_booking_requests (
+    id SERIAL PRIMARY KEY,
+    company_name VARCHAR(150) NOT NULL,
+    contact_name VARCHAR(100) NOT NULL,
+    contact_email VARCHAR(255) NOT NULL,
+    city VARCHAR(20) NOT NULL
+        CHECK (city IN ('Oulu', 'Tampere')),
+    preferred_date DATE NOT NULL,
+    guest_count INTEGER NOT NULL
+        CHECK (guest_count BETWEEN 1 AND 200),
+    additional_requests TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 --placeholder movie for testing
 INSERT INTO movies (
     title,
     duration_minutes,
     image_url,
     description,
-    age_rating
+    age_rating,
+    featured,
+    featured_position
 ) VALUES (
     'Placeholder Movie',
     120,
     'https://upload.wikimedia.org/wikipedia/fi/8/84/Oppenheimer-poster.jpg?utm_source=fi.wikipedia.org&utm_campaign=index&utm_content=original',
     'Movie details will appear here.',
-    'PG-13'
+    'PG-13',
+    TRUE,
+    1
 );
 
 --placeholder showtime for testing
