@@ -133,3 +133,7 @@ export function updateShowtime(id, showtime) {
 export function deleteShowtime(id) {
   return send("DELETE", `/admin/showtimes/${id}`);
 }
+
+export function fetchMyReservations() {
+  return send("GET", "/profile/reservations");
+}

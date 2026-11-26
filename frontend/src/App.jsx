@@ -9,6 +9,7 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import PaymentSuccess from "./pages/PaymentSuccess.jsx";
 import CinemaPage from "./pages/CinemaPage.jsx";
 import OwnerDashboard from "./pages/OwnerDashboard.jsx";
+import Profile from "./pages/Profile.jsx";
 
 function App() {
   return (
@@ -26,7 +27,7 @@ function App() {
 
         {/* käyttäjät */}
         <Route element={<ProtectedRoute />}>
-          {/* e.g. <Route path="/my-reservations" element={<MyReservations />} /> */}
+          <Route path="/profile" element={<Profile />} />
         </Route>
 
         {/* omistaja */}

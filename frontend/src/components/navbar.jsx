@@ -28,7 +28,9 @@ export default function Navbar() {
         <span aria-label="Search">⌕</span>
         {user ? (
           <>
-            <span className="rio-user-name">{user.name}</span>
+            <NavLink to="/profile" className="rio-user-name">
+              {user.name}
+            </NavLink>
             <button className="rio-logout" onClick={logout}>
               Kirjaudu ulos
             </button>

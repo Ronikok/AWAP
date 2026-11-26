@@ -159,6 +159,13 @@
 
 .rio-user-name {
   font-size: 20px;
+  color: white;
+  text-decoration: none;
+}
+
+.rio-user-name:hover,
+.rio-user-name.active {
+  color: #d6b45e;
 }
 
 .rio-logout {

@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import { createAuth } from "./auth.js";
 import { createAdminRouter } from "./admin.js";
 import { createOwnerRouter, ensureFeaturedColumns } from "./owner.js";
+import { createProfileRouter } from "./profile.js";
 
 const { Pool } = pg;
 
@@ -119,6 +120,7 @@ const { authRouter, requireAuth, requireRole } = createAuth(pool);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", createAdminRouter(pool, requireAuth, requireRole));
 app.use("/api/admin", createOwnerRouter(pool, requireAuth, requireRole));
+app.use("/api/profile", createProfileRouter(pool, requireAuth));
 
 app.get("/api/healthz", (_req, res) => res.json({ status: "ok" }));
 app.get("/api/readyz", (_req, res) => res.json({ status: "ready" }));
