@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router";
 import { startCheckout, fetchShowtimeById, fetchShowtimeSeats } from "../api";
 import ConfirmSeatsModal from "../components/ConfirmSeatsModal";
 import { useAuth } from "../context/AuthContext";
+import { reserveSeats } from "../api";
 import "../assets/seatingMap.css";
 
 export default function SeatingMap() {
@@ -17,7 +18,7 @@ export default function SeatingMap() {
       ? searchParams.get("error") || "Payment was cancelled. Please try again."
       : "",
   );
-  const [isStartingPayment, setIsStartingPayment] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [email, setEmail] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -107,9 +108,9 @@ export default function SeatingMap() {
     return (priceInCents / 100).toFixed(2);
   }
 
-  async function handlePayment() {
+  async function handlePayment(ticketCounts) {
     setPaymentError("");
-    setIsStartingPayment(true);
+    setIsProcessing(true);
 
     try {
       const { url } = await startCheckout({
@@ -117,12 +118,30 @@ export default function SeatingMap() {
         seatIds: selectedSeats,
         customerName,
         email,
-        ticketCount: selectedSeats.length,
+        ticketCounts,
       });
       window.location.assign(url);
     } catch (error) {
       setPaymentError(error.message);
-      setIsStartingPayment(false);
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  async function handleReserve(ticketCounts) {
+    setPaymentError("");
+    setIsProcessing(true);
+
+    try {
+      await reserveSeats({
+        showtimeId: id,
+        seatIds: selectedSeats,
+        ticketCounts,
+      });
+    } catch (error) {
+      setPaymentError(error.message);
+    } finally {
+      setIsProcessing(false);
     }
   }
 
@@ -315,10 +334,10 @@ export default function SeatingMap() {
             <button
               type="button"
               className="btn w-100 mt-3 text-white confirmSeatsButton"
-              disabled={selectedSeats.length === 0 || isStartingPayment}
+              disabled={selectedSeats.length === 0 || isProcessing}
               onClick={() => openConfirmationModal()}
             >
-              {isStartingPayment ? "Opening payment..." : "Continue"}
+              {isProcessing ? "Processing..." : "Continue"}
             </button>
             {paymentError && <p className="text-danger mt-3">{paymentError}</p>}
           </aside>
@@ -331,6 +350,9 @@ export default function SeatingMap() {
             movieTitle: showtimeMovie?.title,
             startTime: showtimeMovie?.start_time,
             durationMinutes: showtimeMovie?.duration_minutes,
+            ticketPrice: showtimeMovie?.ticket_price,
+            theatreName: showtimeMovie?.theatre_name,
+            city: showtimeMovie?.city,
           }}
           formatShowtime={formatShowtime}
           formatEndTime={formatEndTime}
@@ -341,9 +363,10 @@ export default function SeatingMap() {
           onCustomerNameChange={(event) => setCustomerName(event.target.value)}
           onEmailChange={(event) => setEmail(event.target.value)}
           onConfirm={handlePayment}
-          isStartingPayment={isStartingPayment}
+          isProcessing={isProcessing}
           paymentError={paymentError}
           onClose={() => setShowConfirmation(false)}
+          onReserve={handleReserve}
         />
       )}
     </main>

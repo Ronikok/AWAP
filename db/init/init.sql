@@ -34,7 +34,7 @@ CREATE TABLE seats (
     UNIQUE (room_id, row_number, seat_number)
 );
 
---insert seats foor rooms 1-4
+--insert seats for rooms 1-4
 INSERT INTO seats (
     room_id,
     row_number,
@@ -175,6 +175,8 @@ CREATE TABLE reservation_seats (
 	id SERIAL PRIMARY KEY,
 	reservation_id INTEGER NOT NULL REFERENCES reservations(id),
 	seat_id INTEGER NOT NULL REFERENCES seats(id),
+	ticket_type VARCHAR(10) NOT NULL DEFAULT 'normal'
+	    CHECK (ticket_type IN ('normal', 'child')),
 	UNIQUE (reservation_id, seat_id)
 );
 
@@ -182,6 +184,8 @@ CREATE TABLE tickets (
 	id SERIAL PRIMARY KEY,
 	reservation_id INTEGER REFERENCES reservations(id),
 	seat_id INTEGER NOT NULL REFERENCES seats(id),
+	ticket_type VARCHAR(10) NOT NULL DEFAULT 'normal'
+	    CHECK (ticket_type IN ('normal', 'child')),
 	purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	child_discount BOOLEAN DEFAULT FALSE,
 	tenth_ticket_discount BOOLEAN DEFAULT FALSE,
@@ -192,8 +196,6 @@ CREATE TABLE processed_stripe_events (
 	event_id TEXT PRIMARY KEY,
 	processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
--- TODO: waiting list, company reservations
 
 --placeholder movie for testing
 INSERT INTO movies (
