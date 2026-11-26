@@ -25,31 +25,43 @@ const pool = new Pool({
 });
 
 function hasValidTicketCounts(ticketCounts, seatCount) {
-  return (
+  const validCounts =
     ticketCounts &&
     typeof ticketCounts === "object" &&
     !Array.isArray(ticketCounts) &&
     Number.isInteger(ticketCounts.normal) &&
     ticketCounts.normal >= 0 &&
     Number.isInteger(ticketCounts.child) &&
-    ticketCounts.child >= 0 &&
-    ticketCounts.normal + ticketCounts.child === seatCount
+    ticketCounts.child >= 0;
+  return (
+    validCounts &&
+    (seatCount === undefined ||
+      ticketCounts.normal + ticketCounts.child === seatCount)
   );
 }
 
-function getTicketTypes(seatIds, ticketCounts) {
-  return seatIds.map((_, index) =>
-    index < ticketCounts.normal ? "normal" : "child",
-  );
+function getTicketTypes(seatIds, ticketCounts, wheelchairSeatIds) {
+  const wheelchairIds = new Set(wheelchairSeatIds);
+  let regularTicketIndex = 0;
+  return seatIds.map((seatId) => {
+    if (wheelchairIds.has(seatId)) return "wheelchair";
+    return regularTicketIndex++ < ticketCounts.normal ? "normal" : "child";
+  });
 }
 
 function calculateTicketTotalCents(ticketTypes, ticketPriceCents) {
   const normalTickets = ticketTypes.filter(
     (ticketType) => ticketType === "normal",
   ).length;
+  const childTickets = ticketTypes.filter(
+    (ticketType) => ticketType === "child",
+  ).length;
   const tenthTicketDiscountCount = Math.floor(ticketTypes.length / 10);
   const normalDiscountCount = Math.min(tenthTicketDiscountCount, normalTickets);
-  const childDiscountCount = tenthTicketDiscountCount - normalDiscountCount;
+  const childDiscountCount = Math.min(
+    tenthTicketDiscountCount - normalDiscountCount,
+    childTickets,
+  );
   const childTicketPriceCents = Math.round(ticketPriceCents / 2);
   const ticketTotal = ticketTypes.reduce(
     (total, ticketType) =>
@@ -329,6 +341,7 @@ app.get("/api/showtimes/:id/seats", async (req, res) => {
         st.row_number,
         st.seat_number,
         st.column_position,
+        st.is_wheelchair,
         st.is_client_reserved,
         EXISTS (
           SELECT 1
@@ -378,9 +391,9 @@ app.post("/api/checkout-sessions", async (req, res) => {
       });
     }
 
-    if (!hasValidTicketCounts(ticketCounts, seatIds.length)) {
+    if (!hasValidTicketCounts(ticketCounts)) {
       return res.status(400).json({
-        error: "Ticket counts must match the number of selected seats",
+        error: "Ticket counts are invalid",
       });
     }
 
@@ -409,8 +422,6 @@ app.post("/api/checkout-sessions", async (req, res) => {
         .status(400)
         .json({ error: "A seat can be selected only once" });
     }
-    const ticketTypes = getTicketTypes(uniqueSeatIds, ticketCounts);
-
     const client = await pool.connect();
     let showtime;
     let reservationId;
@@ -446,7 +457,7 @@ app.post("/api/checkout-sessions", async (req, res) => {
       }
 
       const seatResult = await client.query(
-        `SELECT id
+        `SELECT id, is_wheelchair
          FROM seats
          WHERE room_id = $1
            AND id = ANY($2::int[])
@@ -472,6 +483,22 @@ app.post("/api/checkout-sessions", async (req, res) => {
         await client.query("ROLLBACK");
         return res.status(409).json({ error: "One or more seats are invalid" });
       }
+
+      const wheelchairSeatIds = seatResult.rows
+        .filter((seat) => seat.is_wheelchair)
+        .map((seat) => seat.id);
+      const regularSeatCount = uniqueSeatIds.length - wheelchairSeatIds.length;
+      if (!hasValidTicketCounts(ticketCounts, regularSeatCount)) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          error: "Ticket counts must match the number of selected regular seats",
+        });
+      }
+      const ticketTypes = getTicketTypes(
+        uniqueSeatIds,
+        ticketCounts,
+        wheelchairSeatIds,
+      );
 
       const takenResult = await client.query(
         `SELECT rs.seat_id
@@ -667,23 +694,16 @@ app.post("/api/reservations/reserve", requireAuth, async (req, res) => {
     !Number.isInteger(Number(showtimeId)) ||
     !Array.isArray(seatIds) ||
     seatIds.length === 0 ||
-    seatIds.some((id) => !Number.isInteger(id))
+    seatIds.some((id) => !Number.isInteger(id)) ||
+    !hasValidTicketCounts(ticketCounts)
   ) {
     return res.status(400).json({ error: "Invalid request body" });
-  }
-
-  if (!hasValidTicketCounts(ticketCounts, seatIds.length)) {
-    return res.status(400).json({
-      error: "Ticket counts must match the number of selected seats",
-    });
   }
 
   const uniqueSeatIds = [...new Set(seatIds)];
   if (uniqueSeatIds.length !== seatIds.length) {
     return res.status(400).json({ error: "A seat can be selected only once" });
   }
-  const ticketTypes = getTicketTypes(uniqueSeatIds, ticketCounts);
-
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -727,7 +747,7 @@ app.post("/api/reservations/reserve", requireAuth, async (req, res) => {
     }
 
     const seatResult = await client.query(
-      `SELECT id
+      `SELECT id, is_wheelchair
        FROM seats
        WHERE room_id = $1
          AND id = ANY($2::int[])
@@ -742,6 +762,22 @@ app.post("/api/reservations/reserve", requireAuth, async (req, res) => {
         error: "One or more seats are invalid",
       });
     }
+
+    const wheelchairSeatIds = seatResult.rows
+      .filter((seat) => seat.is_wheelchair)
+      .map((seat) => seat.id);
+    const regularSeatCount = uniqueSeatIds.length - wheelchairSeatIds.length;
+    if (!hasValidTicketCounts(ticketCounts, regularSeatCount)) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: "Ticket counts must match the number of selected regular seats",
+      });
+    }
+    const ticketTypes = getTicketTypes(
+      uniqueSeatIds,
+      ticketCounts,
+      wheelchairSeatIds,
+    );
 
     const takenResult = await client.query(
       `SELECT rs.seat_id

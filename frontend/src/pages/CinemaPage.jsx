@@ -13,7 +13,7 @@ export default function CinemaPage({ city }) {
 
       try {
         const response = await fetch(
-          `/api/showtimes?city=${encodeURIComponent(city)}`
+          `/api/showtimes?city=${encodeURIComponent(city)}`,
         );
 
         if (!response.ok) {
@@ -24,8 +24,8 @@ export default function CinemaPage({ city }) {
 
         setShowtimes(
           data.filter(
-            (showtime) => new Date(showtime.start_local) > new Date()
-          )
+            (showtime) => new Date(showtime.start_local) > new Date(),
+          ),
         );
       } catch (err) {
         console.error(err);
@@ -38,43 +38,40 @@ export default function CinemaPage({ city }) {
     loadShowtimes();
   }, [city]);
 
-    const dates = Array.from({ length: 7 }, (_, index) => {
-        const date = new Date();
-        date.setHours(0, 0, 0, 0);
-        date.setDate(date.getDate() + index);
-        return date;
-    });
+  const dates = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + index);
+    return date;
+  });
 
-    const [selectedDate, setSelectedDate] = useState(
-        new Date().toDateString()
-    );
+  const [selectedDate, setSelectedDate] = useState(new Date().toDateString());
 
   return (
     <main className="cinema-page">
       <h1>Ohjelmisto – Cinema RIO {city}</h1>
       <h2>Tulevat näytökset</h2>
 
-<div className="cinema-dates">
-  {dates.map((date) => (
-    <button
-      key={date.toDateString()}
-      type="button"
-      className={
-        selectedDate === date.toDateString()
-          ? "cinema-date active"
-          : "cinema-date"
-      }
-      onClick={() => setSelectedDate(date.toDateString())}
-    >
-      {date.toLocaleDateString("fi-FI", {
-        weekday: "short",
-        day: "numeric",
-        month: "numeric",
-      })}
-    </button>
-  ))}
-</div>
-
+      <div className="cinema-dates">
+        {dates.map((date) => (
+          <button
+            key={date.toDateString()}
+            type="button"
+            className={
+              selectedDate === date.toDateString()
+                ? "cinema-date active"
+                : "cinema-date"
+            }
+            onClick={() => setSelectedDate(date.toDateString())}
+          >
+            {date.toLocaleDateString("fi-FI", {
+              weekday: "short",
+              day: "numeric",
+              month: "numeric",
+            })}
+          </button>
+        ))}
+      </div>
 
       {loading && <p>Ladataan näytöksiä...</p>}
       {error && <p>{error}</p>}
@@ -88,16 +85,10 @@ export default function CinemaPage({ city }) {
           <h3>{showtime.title}</h3>
 
           {showtime.image_url && (
-            <img
-              src={showtime.image_url}
-              alt={showtime.title}
-              width="150"
-            />
+            <img src={showtime.image_url} alt={showtime.title} width="150" />
           )}
 
-          <p>
-            {new Date(showtime.start_local).toLocaleString("fi-FI")}
-          </p>
+          <p>{new Date(showtime.start_local).toLocaleString("fi-FI")}</p>
 
           <p>Hinta: {showtime.ticket_price} €</p>
         </div>

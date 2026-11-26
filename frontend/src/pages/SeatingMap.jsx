@@ -151,8 +151,13 @@ export default function SeatingMap() {
     );
 
     return rowNumbers.map((rowNumber, rowIndex) => (
-      <div key={rowNumber} className="seatingRow">
-        <span className="rowLabel">R{rowNumber}</span>
+      <div
+        key={rowNumber}
+        className={`seatingRow ${rowNumber === 0 ? "wheelchairRow" : ""}`}
+      >
+        <span className="rowLabel">
+          {rowNumber === 0 ? " " : `R${rowNumber}`}
+        </span>
 
         {seats
           .filter((seat) => seat.row_number === rowNumber)
@@ -163,6 +168,10 @@ export default function SeatingMap() {
           )
           .map((seat) => {
             const isVip = seat.seat_number === 13;
+            const isWheelchair =
+              seat.is_wheelchair === true ||
+              seat.is_wheelchair === "true" ||
+              Number(seat.row_number) === 0;
             const isSelected = selectedSeats.includes(seat.id);
             const isUnavailable = seat.is_client_reserved || seat.is_reserved;
 
@@ -170,13 +179,17 @@ export default function SeatingMap() {
               <button
                 key={seat.id}
                 type="button"
-                className={`seatButton ${isSelected ? "is-selected" : ""}`}
-                aria-label={`Row ${seat.row_number}, seat ${seat.seat_number}`}
+                className={`seatButton ${isWheelchair ? "wheelchairSeatButton" : ""} ${isSelected ? "is-selected" : ""}`}
+                aria-label={
+                  isWheelchair
+                    ? `Wheelchair space ${seat.seat_number}`
+                    : `Row ${seat.row_number}, seat ${seat.seat_number}`
+                }
                 aria-pressed={isSelected}
                 disabled={isUnavailable || isVip}
                 onClick={() => toggleSeat(seat.id)}
               >
-                {isVip ? "VIP" : seat.seat_number}
+                {isWheelchair ? "" : isVip ? "VIP" : seat.seat_number}
               </button>
             );
           })}
@@ -235,6 +248,9 @@ export default function SeatingMap() {
             >
               <span className="d-flex align-items-center gap-2">
                 <i className="legendSeat"></i>Available
+              </span>
+              <span className="d-flex align-items-center gap-2">
+                <i className="legendSeat legendWheelchair"></i>Wheelchair
               </span>
               <span className="d-flex align-items-center gap-2">
                 <i className="legendSeat legendSelected"></i>Selected

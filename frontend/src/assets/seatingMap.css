@@ -130,6 +130,20 @@
   background: #f0d58a;
 }
 
+.wheelchairSeatButton {
+  color: #b7ddff;
+  border-color: #5593c8;
+  background: #244b69;
+}
+
+.wheelchairSeatButton:hover:not(:disabled) {
+  background: #32678e;
+}
+
+.wheelchairRow .rowLabel {
+  color: #b7ddff;
+}
+
 .seatButton:disabled {
   background: #555;
   border-color: #666;
@@ -150,6 +164,11 @@
 .legendSelected {
   background: var(--theme-gold);
   border-color: #f0d58a;
+}
+
+.legendWheelchair {
+  background: #244b69;
+  border-color: #5593c8;
 }
 
 .legendUnavailable {

@@ -31,6 +31,7 @@ CREATE TABLE seats (
     seat_number INTEGER NOT NULL CHECK (seat_number > 0),
     column_position INTEGER NOT NULL,
     is_client_reserved BOOLEAN DEFAULT FALSE,
+    is_wheelchair BOOLEAN NOT NULL DEFAULT FALSE,
     UNIQUE (room_id, row_number, seat_number)
 );
 
@@ -135,6 +136,24 @@ SELECT
     FALSE
 FROM seat_positions;
 
+INSERT INTO seats (
+    room_id,
+    row_number,
+    seat_number,
+    column_position,
+    is_client_reserved,
+    is_wheelchair
+)
+SELECT
+    room.room_id,
+    0,
+    wheelchair_space.seat_number,
+    wheelchair_space.seat_number,
+    FALSE,
+    TRUE
+FROM (VALUES (1), (2), (3), (4)) AS room(room_id)
+CROSS JOIN generate_series(1, 10) AS wheelchair_space(seat_number);
+
 
 CREATE TABLE movies (
 	id SERIAL PRIMARY KEY,
@@ -178,7 +197,7 @@ CREATE TABLE reservation_seats (
 	reservation_id INTEGER NOT NULL REFERENCES reservations(id),
 	seat_id INTEGER NOT NULL REFERENCES seats(id),
 	ticket_type VARCHAR(10) NOT NULL DEFAULT 'normal'
-	    CHECK (ticket_type IN ('normal', 'child')),
+	    CHECK (ticket_type IN ('normal', 'child', 'wheelchair')),
 	UNIQUE (reservation_id, seat_id)
 );
 
@@ -187,7 +206,7 @@ CREATE TABLE tickets (
 	reservation_id INTEGER REFERENCES reservations(id),
 	seat_id INTEGER NOT NULL REFERENCES seats(id),
 	ticket_type VARCHAR(10) NOT NULL DEFAULT 'normal'
-	    CHECK (ticket_type IN ('normal', 'child')),
+	    CHECK (ticket_type IN ('normal', 'child', 'wheelchair')),
 	purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	child_discount BOOLEAN DEFAULT FALSE,
 	tenth_ticket_discount BOOLEAN DEFAULT FALSE,
