@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { startCheckout, fetchShowtimeById, fetchShowtimeSeats } from "../api";
 import ConfirmSeatsModal from "../components/ConfirmSeatsModal";
+import { useAuth } from "../context/AuthContext";
+import { reserveSeats } from "../api";
 import "../assets/seatingMap.css";
 
 export default function SeatingMap() {
@@ -13,14 +15,15 @@ export default function SeatingMap() {
   const [showtimeError, setShowtimeError] = useState("");
   const [paymentError, setPaymentError] = useState(() =>
     searchParams.get("payment") === "cancelled"
-      ? searchParams.get("error") ||
-        "Payment was cancelled. Please try again."
+      ? searchParams.get("error") || "Payment was cancelled. Please try again."
       : "",
   );
-  const [isStartingPayment, setIsStartingPayment] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [email, setEmail] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const { user, loading } = useAuth();
+  const [prefilledInfo, setPrefilledInfo] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("payment") === "cancelled") {
@@ -105,9 +108,9 @@ export default function SeatingMap() {
     return (priceInCents / 100).toFixed(2);
   }
 
-  async function handlePayment() {
+  async function handlePayment(ticketCounts) {
     setPaymentError("");
-    setIsStartingPayment(true);
+    setIsProcessing(true);
 
     try {
       const { url } = await startCheckout({
@@ -115,78 +118,96 @@ export default function SeatingMap() {
         seatIds: selectedSeats,
         customerName,
         email,
-        ticketCount: selectedSeats.length,
+        ticketCounts,
       });
       window.location.assign(url);
     } catch (error) {
       setPaymentError(error.message);
-      setIsStartingPayment(false);
+    } finally {
+      setIsProcessing(false);
     }
   }
 
-  function getSnakeSeatLabels(seatsToDisplay) {
-    const rowNumbers = [
-      ...new Set(seatsToDisplay.map((seat) => seat.row_number)),
-    ].sort((a, b) => a - b);
-    const labels = new Map();
-    let nextLabel = 1;
+  async function handleReserve(ticketCounts) {
+    setPaymentError("");
+    setIsProcessing(true);
 
-    rowNumbers.forEach((rowNumber, rowIndex) => {
-      const rowSeats = seatsToDisplay
-        .filter((seat) => seat.row_number === rowNumber)
-        .sort((a, b) => a.column_position - b.column_position);
-
-      if (rowIndex % 2 === 0) {
-        rowSeats.forEach((seat) => {
-          labels.set(seat.id, nextLabel++);
-        });
-      } else {
-        rowSeats.forEach((seat, index) => {
-          labels.set(seat.id, nextLabel + rowSeats.length - index - 1);
-        });
-        nextLabel += rowSeats.length;
-      }
-    });
-
-    return labels;
+    try {
+      await reserveSeats({
+        showtimeId: id,
+        seatIds: selectedSeats,
+        ticketCounts,
+      });
+    } catch (error) {
+      setPaymentError(error.message);
+    } finally {
+      setIsProcessing(false);
+    }
   }
 
   function createSeatingMap() {
-    const seatsToDisplay = seats;
-    const rowNumbers = [
-      ...new Set(seatsToDisplay.map((seat) => seat.row_number)),
-    ].sort((a, b) => a - b);
-    const seatLabels = getSnakeSeatLabels(seatsToDisplay);
+    const rowNumbers = [...new Set(seats.map((seat) => seat.row_number))].sort(
+      (a, b) => a - b,
+    );
 
-    return rowNumbers.map((rowNumber) => (
-      <div key={rowNumber} className="seatingRow">
-        <span className="rowLabel">R{rowNumber}</span>
-        {seatsToDisplay
+    return rowNumbers.map((rowNumber, rowIndex) => (
+      <div
+        key={rowNumber}
+        className={`seatingRow ${rowNumber === 0 ? "wheelchairRow" : ""}`}
+      >
+        <span className="rowLabel">
+          {rowNumber === 0 ? " " : `R${rowNumber}`}
+        </span>
+
+        {seats
           .filter((seat) => seat.row_number === rowNumber)
-          .sort((a, b) => a.column_position - b.column_position)
+          .sort((a, b) =>
+            rowIndex % 2 === 0
+              ? a.column_position - b.column_position
+              : b.column_position - a.column_position,
+          )
           .map((seat) => {
+            const isVip = seat.seat_number === 13;
+            const isWheelchair =
+              seat.is_wheelchair === true ||
+              seat.is_wheelchair === "true" ||
+              Number(seat.row_number) === 0;
             const isSelected = selectedSeats.includes(seat.id);
             const isUnavailable = seat.is_client_reserved || seat.is_reserved;
-            const seatLabel = seatLabels.get(seat.id);
 
             return (
               <button
                 key={seat.id}
                 type="button"
-                className={`seatButton ${isSelected ? "is-selected" : ""} ${
-                  isUnavailable ? "is-unavailable" : ""
-                }`}
-                aria-label={`Row ${seat.row_number}, seat ${seatLabel}`}
+                className={`seatButton ${isWheelchair ? "wheelchairSeatButton" : ""} ${isSelected ? "is-selected" : ""}`}
+                aria-label={
+                  isWheelchair
+                    ? `Wheelchair space ${seat.seat_number}`
+                    : `Row ${seat.row_number}, seat ${seat.seat_number}`
+                }
                 aria-pressed={isSelected}
-                disabled={isUnavailable}
+                disabled={isUnavailable || isVip}
                 onClick={() => toggleSeat(seat.id)}
               >
-                {seatLabels.get(seat.id)}
+                {isWheelchair ? "" : isVip ? "VIP" : seat.seat_number}
               </button>
             );
           })}
       </div>
     ));
+  }
+
+  function openConfirmationModal() {
+    if (!loading && user) {
+      setCustomerName(user.name);
+      setEmail(user.email);
+      setPrefilledInfo(true);
+    } else if (prefilledInfo) {
+      setCustomerName("");
+      setEmail("");
+      setPrefilledInfo(false);
+    }
+    setShowConfirmation(true);
   }
 
   return (
@@ -227,6 +248,9 @@ export default function SeatingMap() {
             >
               <span className="d-flex align-items-center gap-2">
                 <i className="legendSeat"></i>Available
+              </span>
+              <span className="d-flex align-items-center gap-2">
+                <i className="legendSeat legendWheelchair"></i>Wheelchair
               </span>
               <span className="d-flex align-items-center gap-2">
                 <i className="legendSeat legendSelected"></i>Selected
@@ -300,13 +324,12 @@ export default function SeatingMap() {
                     .map((id) => {
                       const seat = seats.find((item) => item.id === id);
                       if (!seat) return null;
-                      const seatLabel = getSnakeSeatLabels(seats).get(id);
                       return (
                         <span
                           key={id}
                           className="badge rounded-pill border border-secondary fw-normal"
                         >
-                          R{seat.row_number} · S{seatLabel}
+                          R{seat.row_number} · S{seat.seat_number}
                         </span>
                       );
                     })}
@@ -327,10 +350,10 @@ export default function SeatingMap() {
             <button
               type="button"
               className="btn w-100 mt-3 text-white confirmSeatsButton"
-              disabled={selectedSeats.length === 0 || isStartingPayment}
-              onClick={() => setShowConfirmation(true)}
+              disabled={selectedSeats.length === 0 || isProcessing}
+              onClick={() => openConfirmationModal()}
             >
-              {isStartingPayment ? "Opening payment..." : "Continue"}
+              {isProcessing ? "Processing..." : "Continue"}
             </button>
             {paymentError && <p className="text-danger mt-3">{paymentError}</p>}
           </aside>
@@ -343,20 +366,23 @@ export default function SeatingMap() {
             movieTitle: showtimeMovie?.title,
             startTime: showtimeMovie?.start_time,
             durationMinutes: showtimeMovie?.duration_minutes,
+            ticketPrice: showtimeMovie?.ticket_price,
+            theatreName: showtimeMovie?.theatre_name,
+            city: showtimeMovie?.city,
           }}
           formatShowtime={formatShowtime}
           formatEndTime={formatEndTime}
           seats={seats}
-          seatLabels={getSnakeSeatLabels(seats)}
           selectedSeats={selectedSeats}
           customerName={customerName}
           email={email}
           onCustomerNameChange={(event) => setCustomerName(event.target.value)}
           onEmailChange={(event) => setEmail(event.target.value)}
           onConfirm={handlePayment}
-          isStartingPayment={isStartingPayment}
+          isProcessing={isProcessing}
           paymentError={paymentError}
           onClose={() => setShowConfirmation(false)}
+          onReserve={handleReserve}
         />
       )}
     </main>

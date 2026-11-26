@@ -24,6 +24,60 @@ const pool = new Pool({
   database: process.env.DB_NAME || "appdb",
 });
 
+function hasValidTicketCounts(ticketCounts, seatCount) {
+  const validCounts =
+    ticketCounts &&
+    typeof ticketCounts === "object" &&
+    !Array.isArray(ticketCounts) &&
+    Number.isInteger(ticketCounts.normal) &&
+    ticketCounts.normal >= 0 &&
+    Number.isInteger(ticketCounts.child) &&
+    ticketCounts.child >= 0;
+  return (
+    validCounts &&
+    (seatCount === undefined ||
+      ticketCounts.normal + ticketCounts.child === seatCount)
+  );
+}
+
+function getTicketTypes(seatIds, ticketCounts, wheelchairSeatIds) {
+  const wheelchairIds = new Set(wheelchairSeatIds);
+  let regularTicketIndex = 0;
+  return seatIds.map((seatId) => {
+    if (wheelchairIds.has(seatId)) return "wheelchair";
+    return regularTicketIndex++ < ticketCounts.normal ? "normal" : "child";
+  });
+}
+
+function calculateTicketTotalCents(ticketTypes, ticketPriceCents) {
+  const normalTickets = ticketTypes.filter(
+    (ticketType) => ticketType === "normal",
+  ).length;
+  const childTickets = ticketTypes.filter(
+    (ticketType) => ticketType === "child",
+  ).length;
+  const tenthTicketDiscountCount = Math.floor(ticketTypes.length / 10);
+  const normalDiscountCount = Math.min(tenthTicketDiscountCount, normalTickets);
+  const childDiscountCount = Math.min(
+    tenthTicketDiscountCount - normalDiscountCount,
+    childTickets,
+  );
+  const childTicketPriceCents = Math.round(ticketPriceCents / 2);
+  const ticketTotal = ticketTypes.reduce(
+    (total, ticketType) =>
+      total +
+      (ticketType === "child"
+        ? Math.round(ticketPriceCents / 2)
+        : ticketPriceCents),
+    0,
+  );
+  return (
+    ticketTotal -
+    normalDiscountCount * Math.round(ticketPriceCents / 2) -
+    childDiscountCount * Math.round(childTicketPriceCents / 2)
+  );
+}
+
 async function expirePendingReservations() {
   try {
     await pool.query(
@@ -229,6 +283,7 @@ app.get("/api/showtimes", async (req, res) => {
   }
 });
 
+// Retrieves a specific showtime by ID
 app.get("/api/showtimes/:id", async (req, res) => {
   try {
     const showtimeId = Number(req.params.id);
@@ -272,6 +327,7 @@ app.get("/api/showtimes/:id", async (req, res) => {
   }
 });
 
+// Retrieves seats for a specific showtime, including their reservation status
 app.get("/api/showtimes/:id/seats", async (req, res) => {
   try {
     const showtimeId = Number(req.params.id);
@@ -285,6 +341,7 @@ app.get("/api/showtimes/:id/seats", async (req, res) => {
         st.row_number,
         st.seat_number,
         st.column_position,
+        st.is_wheelchair,
         st.is_client_reserved,
         EXISTS (
           SELECT 1
@@ -321,6 +378,7 @@ app.post("/api/checkout-sessions", async (req, res) => {
     const seatIds = req.body.seatIds;
     const customerName = req.body.customerName;
     const email = req.body.email;
+    const ticketCounts = req.body.ticketCounts;
 
     if (
       !Number.isInteger(showtimeId) ||
@@ -330,6 +388,12 @@ app.post("/api/checkout-sessions", async (req, res) => {
     ) {
       return res.status(400).json({
         error: "Showtime or seat selection is invalid",
+      });
+    }
+
+    if (!hasValidTicketCounts(ticketCounts)) {
+      return res.status(400).json({
+        error: "Ticket counts are invalid",
       });
     }
 
@@ -358,7 +422,6 @@ app.post("/api/checkout-sessions", async (req, res) => {
         .status(400)
         .json({ error: "A seat can be selected only once" });
     }
-
     const client = await pool.connect();
     let showtime;
     let reservationId;
@@ -367,7 +430,11 @@ app.post("/api/checkout-sessions", async (req, res) => {
     try {
       await client.query("BEGIN");
       const showtimeResult = await client.query(
-        `SELECT s.id AS showtime_id, s.ticket_price, s.room_id, m.title
+        `SELECT s.id AS showtime_id,
+                s.ticket_price,
+                s.room_id,
+                s.start_time,
+                m.title
          FROM showtimes s
          JOIN movies m ON s.movie_id = m.id
          WHERE s.id = $1
@@ -381,8 +448,16 @@ app.post("/api/checkout-sessions", async (req, res) => {
       }
 
       showtime = showtimeResult.rows[0];
+
+      if (new Date(showtime.start_time).getTime() <= Date.now()) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          error: "This showtime has already started",
+        });
+      }
+
       const seatResult = await client.query(
-        `SELECT id
+        `SELECT id, is_wheelchair
          FROM seats
          WHERE room_id = $1
            AND id = ANY($2::int[])
@@ -391,10 +466,39 @@ app.post("/api/checkout-sessions", async (req, res) => {
         [showtime.room_id, uniqueSeatIds],
       );
 
-      if (seatResult.rows.length !== uniqueSeatIds.length) {
+      const vipSeatResult = await pool.query(
+        `SELECT id
+         FROM seats
+         WHERE room_id = $1
+          AND id = ANY($2::int[])
+          AND seat_number = 13
+          AND is_client_reserved = FALSE`,
+        [showtime.room_id, uniqueSeatIds],
+      );
+
+      if (
+        seatResult.rows.length !== uniqueSeatIds.length ||
+        vipSeatResult.rows.length > 0
+      ) {
         await client.query("ROLLBACK");
         return res.status(409).json({ error: "One or more seats are invalid" });
       }
+
+      const wheelchairSeatIds = seatResult.rows
+        .filter((seat) => seat.is_wheelchair)
+        .map((seat) => seat.id);
+      const regularSeatCount = uniqueSeatIds.length - wheelchairSeatIds.length;
+      if (!hasValidTicketCounts(ticketCounts, regularSeatCount)) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          error: "Ticket counts must match the number of selected regular seats",
+        });
+      }
+      const ticketTypes = getTicketTypes(
+        uniqueSeatIds,
+        ticketCounts,
+        wheelchairSeatIds,
+      );
 
       const takenResult = await client.query(
         `SELECT rs.seat_id
@@ -416,10 +520,7 @@ app.post("/api/checkout-sessions", async (req, res) => {
       }
 
       const ticketPriceCents = Math.round(Number(showtime.ticket_price) * 100);
-      const discountedSeats = Math.floor(uniqueSeatIds.length / 10);
-      totalCents =
-        uniqueSeatIds.length * ticketPriceCents -
-        discountedSeats * Math.round(ticketPriceCents / 2);
+      totalCents = calculateTicketTotalCents(ticketTypes, ticketPriceCents);
 
       const reservationResult = await client.query(
         `INSERT INTO reservations (
@@ -431,9 +532,10 @@ app.post("/api/checkout-sessions", async (req, res) => {
       reservationId = reservationResult.rows[0].id;
 
       await client.query(
-        `INSERT INTO reservation_seats (reservation_id, seat_id)
-         SELECT $1, UNNEST($2::int[])`,
-        [reservationId, uniqueSeatIds],
+        `INSERT INTO reservation_seats (reservation_id, seat_id, ticket_type)
+         SELECT $1, seat_id, ticket_type
+         FROM UNNEST($2::int[], $3::varchar[]) AS selected(seat_id, ticket_type)`,
+        [reservationId, uniqueSeatIds, ticketTypes],
       );
       await client.query("COMMIT");
     } catch (error) {
@@ -455,7 +557,7 @@ app.post("/api/checkout-sessions", async (req, res) => {
               product_data: { name: `${showtime.title} tickets` },
               unit_amount: totalCents,
             },
-            quantity: uniqueSeatIds.length,
+            quantity: 1,
           },
         ],
         success_url: `${frontendUrl}/payment-success?reservation_id=${reservationId}&session_id={CHECKOUT_SESSION_ID}`,
@@ -542,8 +644,8 @@ async function handleStripeWebhook(req, res) {
       );
       if (paidResult.rows.length > 0) {
         await client.query(
-          `INSERT INTO tickets (reservation_id, seat_id)
-           SELECT reservation_id, seat_id
+          `INSERT INTO tickets (reservation_id, seat_id, ticket_type, child_discount)
+           SELECT reservation_id, seat_id, ticket_type, ticket_type = 'child'
            FROM reservation_seats
            WHERE reservation_id = $1
            ON CONFLICT (reservation_id, seat_id) DO NOTHING`,
@@ -585,6 +687,167 @@ async function handleStripeWebhook(req, res) {
 }
 //stripe portion ends
 
+app.post("/api/reservations/reserve", requireAuth, async (req, res) => {
+  const { showtimeId, seatIds, ticketCounts } = req.body;
+
+  if (
+    !Number.isInteger(Number(showtimeId)) ||
+    !Array.isArray(seatIds) ||
+    seatIds.length === 0 ||
+    seatIds.some((id) => !Number.isInteger(id)) ||
+    !hasValidTicketCounts(ticketCounts)
+  ) {
+    return res.status(400).json({ error: "Invalid request body" });
+  }
+
+  const uniqueSeatIds = [...new Set(seatIds)];
+  if (uniqueSeatIds.length !== seatIds.length) {
+    return res.status(400).json({ error: "A seat can be selected only once" });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const showtimeResult = await client.query(
+      `SELECT s.id AS showtime_id,
+              s.ticket_price,
+              s.room_id,
+              s.start_time,
+              m.title
+       FROM showtimes s
+       JOIN movies m ON m.id = s.movie_id
+       WHERE s.id = $1
+       FOR UPDATE`,
+      [showtimeId],
+    );
+
+    if (showtimeResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Showtime not found" });
+    }
+
+    const showtime = showtimeResult.rows[0];
+
+    if (new Date(showtime.start_time).getTime() <= Date.now()) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error: "This showtime has already started",
+      });
+    }
+
+    const expiresAt = new Date(
+      new Date(showtime.start_time).getTime() - 2 * 60 * 60 * 1000,
+    );
+
+    if (expiresAt.getTime() <= Date.now()) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error: "Reservations for this showtime have closed",
+      });
+    }
+
+    const seatResult = await client.query(
+      `SELECT id, is_wheelchair
+       FROM seats
+       WHERE room_id = $1
+         AND id = ANY($2::int[])
+         AND is_client_reserved = FALSE
+       FOR UPDATE`,
+      [showtime.room_id, uniqueSeatIds],
+    );
+
+    if (seatResult.rows.length !== uniqueSeatIds.length) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error: "One or more seats are invalid",
+      });
+    }
+
+    const wheelchairSeatIds = seatResult.rows
+      .filter((seat) => seat.is_wheelchair)
+      .map((seat) => seat.id);
+    const regularSeatCount = uniqueSeatIds.length - wheelchairSeatIds.length;
+    if (!hasValidTicketCounts(ticketCounts, regularSeatCount)) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: "Ticket counts must match the number of selected regular seats",
+      });
+    }
+    const ticketTypes = getTicketTypes(
+      uniqueSeatIds,
+      ticketCounts,
+      wheelchairSeatIds,
+    );
+
+    const takenResult = await client.query(
+      `SELECT rs.seat_id
+       FROM reservation_seats rs
+       JOIN reservations r ON r.id = rs.reservation_id
+       WHERE r.showtime_id = $1
+         AND r.status IN ('pending_payment', 'paid')
+         AND (r.status = 'paid' OR r.expires_at > NOW())
+         AND rs.seat_id = ANY($2::int[])
+       FOR UPDATE`,
+      [showtimeId, uniqueSeatIds],
+    );
+
+    if (takenResult.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error: "One or more seats are no longer available",
+      });
+    }
+
+    const ticketPriceCents = Math.round(Number(showtime.ticket_price) * 100);
+    const totalCents = calculateTicketTotalCents(
+      ticketTypes,
+      ticketPriceCents,
+    );
+
+    const reservationResult = await client.query(
+      `INSERT INTO reservations (
+         user_id,
+         customer_name,
+         customer_email,
+         showtime_id,
+         expires_at,
+         total_price,
+         status
+       )
+      VALUES ($1, $2, $3, $4, $5, $6, 'pending_payment')
+       RETURNING id`,
+      [
+        req.user.id,
+        req.user.name,
+        req.user.email,
+        showtimeId,
+        expiresAt,
+        totalCents / 100,
+      ],
+    );
+
+    const reservationId = reservationResult.rows[0].id;
+
+    await client.query(
+      `INSERT INTO reservation_seats (reservation_id, seat_id, ticket_type)
+       SELECT $1, seat_id, ticket_type
+       FROM UNNEST($2::int[], $3::varchar[]) AS selected(seat_id, ticket_type)`,
+      [reservationId, uniqueSeatIds, ticketTypes],
+    );
+    await client.query("COMMIT");
+    return res.status(201).json({
+      reservationId,
+      expiresAt,
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Failed to reserve seats:", error);
+    return res.status(500).json({ error: "Failed to reserve seats" });
+  } finally {
+    client.release();
+  }
+});
+
 //create a ticket PDF
 app.get("/api/reservations/:id/ticket", async (req, res) => {
   const reservationId = Number(req.params.id);
@@ -617,17 +880,13 @@ app.get("/api/reservations/:id/ticket", async (req, res) => {
              AND status = 'pending_payment'
              AND expires_at > NOW()
            RETURNING id`,
-          [
-            sessionId,
-            checkoutSession.payment_intent || null,
-            reservationId,
-          ],
+          [sessionId, checkoutSession.payment_intent || null, reservationId],
         );
 
         if (paidResult.rows.length > 0) {
           await client.query(
-            `INSERT INTO tickets (reservation_id, seat_id)
-             SELECT reservation_id, seat_id
+            `INSERT INTO tickets (reservation_id, seat_id, ticket_type, child_discount)
+             SELECT reservation_id, seat_id, ticket_type, ticket_type = 'child'
              FROM reservation_seats
              WHERE reservation_id = $1
              ON CONFLICT (reservation_id, seat_id) DO NOTHING`,
@@ -677,9 +936,7 @@ app.get("/api/reservations/:id/ticket", async (req, res) => {
     });
   }
 
-  if (
-    reservationResult.rows[0].stripe_checkout_session_id !== sessionId
-  ) {
+  if (reservationResult.rows[0].stripe_checkout_session_id !== sessionId) {
     return res.status(404).json({
       error: "Ticket not found",
       reason: "Session mismatch",
@@ -715,7 +972,6 @@ app.get("/api/reservations/:id/ticket", async (req, res) => {
   pdf.fontSize(16).text(reservation.title);
   pdf.fontSize(12).text(`Showtime: ${reservation.start_time}`);
   pdf.text(`Seats: ${seats}`);
-  pdf.text(`Customer: ${reservation.customer_name}`);
   pdf.text(`Reservation: #${reservationId}`);
   pdf.moveDown();
   pdf.text("Please present this ticket when entering.");

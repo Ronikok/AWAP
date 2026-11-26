@@ -1,23 +1,412 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import { useAuth } from "../context/AuthContext";
 
 export default function ConfirmSeatsModal({
   showtime,
   formatShowtime,
   formatEndTime,
   seats,
-  seatLabels,
   selectedSeats,
   customerName,
   email,
   onCustomerNameChange,
   onEmailChange,
   onConfirm,
-  isStartingPayment,
+  isProcessing,
   paymentError,
   onClose,
+  onReserve,
 }) {
   const [page, setPage] = useState(1);
+  const [bookingAction, setBookingAction] = useState(null);
+  const [ticketCounts, setTicketCounts] = useState({ normal: 0, child: 0 });
+  const { user, loading } = useAuth();
+  const wheelchairSeatIds = selectedSeats.filter(
+    (seatId) => seats.find((seat) => seat.id === seatId)?.is_wheelchair,
+  );
+  const regularSeatCount = selectedSeats.length - wheelchairSeatIds.length;
+  const ticketPriceCents = Math.round(Number(showtime.ticketPrice || 0) * 100);
+  const childDiscountCents =
+    ticketCounts.child * (ticketPriceCents - Math.round(ticketPriceCents / 2));
+  const tenthTicketDiscountCount = Math.floor(selectedSeats.length / 10);
+  const normalDiscountCount = Math.min(
+    tenthTicketDiscountCount,
+    ticketCounts.normal,
+  );
+  const childDiscountCount = Math.min(
+    tenthTicketDiscountCount - normalDiscountCount,
+    ticketCounts.child,
+  );
+  const tenthTicketDiscountCents =
+    normalDiscountCount * Math.round(ticketPriceCents / 2) +
+    childDiscountCount * Math.round(Math.round(ticketPriceCents / 2) / 2);
+  const totalCents =
+    selectedSeats.length * ticketPriceCents -
+    childDiscountCents -
+    tenthTicketDiscountCents;
+
+  function changeTicketCount(type, amount) {
+    setTicketCounts((counts) => {
+      const nextCount = counts[type] + amount;
+      const total = counts.normal + counts.child + amount;
+      if (nextCount < 0 || total > regularSeatCount) return counts;
+      return { ...counts, [type]: nextCount };
+    });
+  }
+
+  function getSelectedTicketType(seatId) {
+    const seat = seats.find((item) => item.id === seatId);
+    if (seat?.is_wheelchair) return "Wheelchair";
+
+    const regularSeatIds = selectedSeats.filter(
+      (selectedSeatId) =>
+        !seats.find((item) => item.id === selectedSeatId)?.is_wheelchair,
+    );
+    return regularSeatIds.indexOf(seatId) < ticketCounts.normal
+      ? "Normal"
+      : "Child";
+  }
+
+  function renderBookingReview() {
+    return (
+      <>
+        <div className="modal-body">
+          <div className="pb-3 border-bottom border-secondary">
+            <h2 className="h5">{showtime.movieTitle}</h2>
+            <p className="confirmSeatsModal__showtime mb-0">
+              {formatShowtime(showtime.startTime)} - {formatEndTime()}
+            </p>
+          </div>
+          <div className="mt-3 p-3 rounded border-start border-3 border-danger">
+            <p className="mb-2">Selected seats</p>
+            <div className="d-flex flex-wrap gap-2">
+              {[...selectedSeats]
+                .sort((a, b) => a - b)
+                .map((seatId) => {
+                  const seat = seats.find((item) => item.id === seatId);
+                  if (!seat) return null;
+
+                  return (
+                    <span
+                      key={seatId}
+                      className="badge rounded-pill border border-secondary fw-normal"
+                    >
+                      {seat.is_wheelchair
+                        ? "Wheelchair space"
+                        : `Row ${seat.row_number}, seat ${
+                            seat.seat_number === 13 ? "VIP" : seat.seat_number
+                          }`}
+                    </span>
+                  );
+                })}
+            </div>
+          </div>
+          <div className="mt-3">
+            <p className="mb-2">Choose a ticket type for each seat</p>
+            {[
+              ["normal", "Normal tickets"],
+              ["child", "Child tickets (12 and under)"],
+            ].map(([type, label]) => (
+              <div
+                key={type}
+                className="d-flex align-items-center justify-content-between py-2"
+              >
+                <span>{label}</span>
+                <div className="d-flex align-items-center gap-3">
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary p-0"
+                    style={{ width: "2.5rem", height: "2.5rem" }}
+                    aria-label={`Add ${label.toLowerCase()}`}
+                    disabled={
+                      ticketCounts.normal + ticketCounts.child === 0 ||
+                      ticketCounts[type] === 0
+                    }
+                    onClick={() => changeTicketCount(type, -1)}
+                  >
+                    -
+                  </button>
+                  <span aria-live="polite">{ticketCounts[type]}</span>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary p-0"
+                    style={{ width: "2.5rem", height: "2.5rem" }}
+                    aria-label={`Remove ${label.toLowerCase()}`}
+                    disabled={
+                      ticketCounts[type] >= regularSeatCount ||
+                      ticketCounts.normal + ticketCounts.child >=
+                        regularSeatCount
+                    }
+                    onClick={() => changeTicketCount(type, 1)}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            ))}
+            <p className="small text-secondary mb-0">
+              {ticketCounts.normal + ticketCounts.child} of {regularSeatCount}{" "}
+              regular seats assigned
+              {wheelchairSeatIds.length > 0 &&
+                ` (${wheelchairSeatIds.length} wheelchair spaces assigned automatically)`}
+            </p>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button
+            type="button"
+            className="btn confirmSeatsModal__paymentButton"
+            disabled={
+              ticketCounts.normal + ticketCounts.child !== regularSeatCount
+            }
+            onClick={() => setPage(2)}
+          >
+            Continue
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  function renderDetailsForm() {
+    return (
+      <>
+        <div className="modal-body">
+          <div className="mt-3">
+            <p className="confirmSeatsModal__formTitle fw-semibold">
+              Enter your details to continue
+            </p>
+            <div className="mb-3">
+              <label htmlFor="customer-name" className="form-label">
+                Full name
+              </label>
+              <input
+                id="customer-name"
+                type="text"
+                className="form-control"
+                placeholder="Enter your full name"
+                value={customerName}
+                maxLength={100}
+                onChange={onCustomerNameChange}
+                disabled={Boolean(user)}
+              />
+            </div>
+            <div className="mb-0">
+              <label htmlFor="customer-email" className="form-label">
+                Email address
+              </label>
+              <input
+                id="customer-email"
+                type="email"
+                className="form-control"
+                placeholder="Enter your email address"
+                value={email}
+                onChange={onEmailChange}
+                disabled={Boolean(user)}
+              />
+            </div>
+          </div>
+          {!user ? (
+            <div className="d-flex justify-content-center align-items-center flex-wrap gap-2 mt-3 pt-3 border-top border-secondary small text-secondary">
+              <span>Want to pay later? You must first </span>
+              <Link to="/login" className="confirmSeatsModal__loginLink">
+                Log in
+              </Link>
+              <span className="confirmSeatsModal__accountDivider">or</span>
+              <Link to="/register" className="confirmSeatsModal__loginLink">
+                Sign up
+              </Link>
+            </div>
+          ) : null}
+          {paymentError && (
+            <p className="text-danger mb-0" role="alert">
+              {paymentError}
+            </p>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button
+            type="button"
+            className="btn confirmSeatsModal__backButton"
+            onClick={() => setPage(1)}
+            disabled={isProcessing}
+          >
+            Back
+          </button>
+          {user && !loading && (
+            <button
+              type="button"
+              className="btn confirmSeatsModal__reserveButton"
+              onClick={() => {
+                setBookingAction("reservation");
+                setPage(3);
+              }}
+              disabled={isProcessing}
+            >
+              Reserve
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn confirmSeatsModal__paymentButton"
+            disabled={!customerName.trim() || !email || isProcessing}
+            onClick={() => {
+              setBookingAction("payment");
+              setPage(3);
+            }}
+          >
+            Pay now
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  function renderBookingConfirmation() {
+    return (
+      <>
+        <div className="modal-body">
+          <div className="pb-3 border-bottom border-secondary">
+            <h2 className="h5">{showtime.movieTitle}</h2>
+            <p className="confirmSeatsModal__showtime mb-0">
+              {formatShowtime(showtime.startTime)} - {formatEndTime()}
+            </p>
+            <p className="mb-0">
+              {showtime.theatreName}
+              {showtime.city ? `${showtime.city}` : ""}
+            </p>
+          </div>
+          {bookingAction === "reservation" && (
+            <div className="alert alert-warning mt-3 mb-0" role="note">
+              <strong>Reservation:</strong> Your seats are held until two hours
+              before the screening starts, unless you pay online or at the
+              cinema ticket counter before then.
+            </div>
+          )}
+          {wheelchairSeatIds.length > 0 && (
+            <div className="alert alert-warning mt-3 mb-0" role="note">
+              <strong>Wheelchair users:</strong> Please note that wheelchair
+              spaces are unnumbered and the exact spot cannot be reserved. All
+              wheelchair spaces are located in the front row of the theatre.
+            </div>
+          )}
+          <div className="mt-3">
+            <h3 className="h6">Seats and ticket types</h3>
+            <ul className="list-unstyled mb-0">
+              {selectedSeats.map((seatId) => {
+                const seat = seats.find((item) => item.id === seatId);
+                if (!seat) return null;
+
+                return (
+                  <li
+                    key={seatId}
+                    className="d-flex justify-content-between py-1"
+                  >
+                    <span>
+                      {seat.is_wheelchair
+                        ? "Wheelchair space"
+                        : `Row ${seat.row_number}, seat ${seat.seat_number}`}
+                    </span>
+                    <span>{getSelectedTicketType(seatId)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          <div className="mt-3 pt-3 border-top border-secondary">
+            <h3 className="h6">Price</h3>
+            {ticketCounts.normal > 0 && (
+              <div className="d-flex justify-content-between">
+                <span>
+                  {ticketCounts.normal} normal tickets ×{" "}
+                  {(ticketPriceCents / 100).toFixed(2)} €
+                </span>
+                <span>
+                  {((ticketCounts.normal * ticketPriceCents) / 100).toFixed(2)}{" "}
+                  €
+                </span>
+              </div>
+            )}
+            {wheelchairSeatIds.length > 0 && (
+              <div className="d-flex justify-content-between">
+                <span>
+                  {wheelchairSeatIds.length} wheelchair tickets ×{" "}
+                  {(ticketPriceCents / 100).toFixed(2)} €
+                </span>
+                <span>
+                  {(
+                    (wheelchairSeatIds.length * ticketPriceCents) /
+                    100
+                  ).toFixed(2)}{" "}
+                  €
+                </span>
+              </div>
+            )}
+            {ticketCounts.child > 0 && (
+              <>
+                <div className="d-flex justify-content-between">
+                  <span>
+                    {ticketCounts.child} child tickets ×{" "}
+                    {(ticketPriceCents / 100).toFixed(2)} €
+                  </span>
+                  <span>
+                    {((ticketCounts.child * ticketPriceCents) / 100).toFixed(2)}{" "}
+                    €
+                  </span>
+                </div>
+                <div className="d-flex justify-content-between text-success">
+                  <span>Child discount (50%)</span>
+                  <span>-{(childDiscountCents / 100).toFixed(2)} €</span>
+                </div>
+              </>
+            )}
+            {tenthTicketDiscountCents > 0 && (
+              <div className="d-flex justify-content-between text-success">
+                <span>10th ticket discount (-50%)</span>
+                <span>-{(tenthTicketDiscountCents / 100).toFixed(2)} €</span>
+              </div>
+            )}
+            <div className="d-flex justify-content-between mt-2 fw-semibold">
+              <span>Total</span>
+              <span>{(totalCents / 100).toFixed(2)} €</span>
+            </div>
+          </div>
+          {paymentError && (
+            <p className="text-danger mt-3 mb-0" role="alert">
+              {paymentError}
+            </p>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button
+            type="button"
+            className="btn confirmSeatsModal__backButton"
+            onClick={() => setPage(2)}
+            disabled={isProcessing}
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            className={`btn ${bookingAction === "reservation" ? "confirmSeatsModal__reserveButton" : "confirmSeatsModal__paymentButton"}`}
+            onClick={() =>
+              bookingAction === "reservation"
+                ? onReserve(ticketCounts)
+                : onConfirm(ticketCounts)
+            }
+            disabled={isProcessing}
+          >
+            {isProcessing
+              ? "Processing..."
+              : bookingAction === "reservation"
+                ? "Confirm reservation"
+                : "Continue to payment"}
+          </button>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -36,20 +425,25 @@ export default function ConfirmSeatsModal({
                       page === 1 ? "is-active" : "is-complete"
                     }`}
                   >
-                    1. Review booking
+                    1. Choose tickets
                   </span>
                   <span className="flex-grow-1 border-top border-secondary"></span>
                   <span
                     className={`confirmSeatsModal__progressStep ${
-                      page === 2 ? "is-active" : ""
+                      page === 2 || page === 3 ? "is-active" : ""
                     }`}
                   >
                     2. Your details
                   </span>
+                  <span className="flex-grow-1 border-top border-secondary"></span>
+                  <span
+                    className={`confirmSeatsModal__progressStep ${
+                      page === 3 ? "is-active" : ""
+                    }`}
+                  >
+                    3. Confirm booking
+                  </span>
                 </div>
-                <h5 className="modal-title mt-3">
-                  {page === 1 ? "Review your booking" : "Your details"}
-                </h5>
               </div>
               <button
                 type="button"
@@ -58,126 +452,9 @@ export default function ConfirmSeatsModal({
                 aria-label="Close"
               ></button>
             </div>
-            <div className="modal-body">
-              {page === 1 ? (
-                <>
-                  <div className="pb-3 border-bottom border-secondary">
-                    <h2 className="h5">{showtime.movieTitle}</h2>
-                    <p className="confirmSeatsModal__showtime mb-0">
-                      {formatShowtime(showtime.startTime)} – {formatEndTime()}
-                    </p>
-                  </div>
-                  <div className="mt-3 p-3 rounded border-start border-3 border-danger">
-                    <p className="mb-2">Selected seats</p>
-                    <div className="d-flex flex-wrap gap-2">
-                      {[...selectedSeats]
-                        .sort((a, b) => a - b)
-                        .map((seatId) => {
-                          const seat = seats.find((item) => item.id === seatId);
-                          if (!seat) return null;
-
-                          return (
-                            <span
-                              key={seatId}
-                              className="badge rounded-pill border border-secondary fw-normal"
-                            >
-                              Row {seat.row_number}, seat{" "}
-                              {seatLabels.get(seatId)}
-                            </span>
-                          );
-                        })}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="mt-3">
-                    <p className="confirmSeatsModal__formTitle fw-semibold">
-                      Enter your details to continue
-                    </p>
-                    <div className="mb-3">
-                      <label htmlFor="customer-name" className="form-label">
-                        Full name
-                      </label>
-                      <input
-                        id="customer-name"
-                        type="text"
-                        className="form-control"
-                        placeholder="Enter your full name"
-                        value={customerName}
-                        maxLength={100}
-                        onChange={onCustomerNameChange}
-                      />
-                    </div>
-                    <div className="mb-0">
-                      <label htmlFor="customer-email" className="form-label">
-                        Email address
-                      </label>
-                      <input
-                        id="customer-email"
-                        type="email"
-                        className="form-control"
-                        placeholder="Enter your email address"
-                        value={email}
-                        onChange={onEmailChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="d-flex justify-content-center align-items-center flex-wrap gap-2 mt-3 pt-3 border-top border-secondary small text-secondary">
-                    <span>Want to save your tickets?</span>
-                    <Link to="/login" className="confirmSeatsModal__loginLink">
-                      Log in
-                    </Link>
-                    <span className="confirmSeatsModal__accountDivider">
-                      or
-                    </span>
-                    <Link
-                      to="/register"
-                      className="confirmSeatsModal__loginLink"
-                    >
-                      Sign up
-                    </Link>
-                  </div>
-                  {paymentError && (
-                    <p className="text-danger mb-0" role="alert">
-                      {paymentError}
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-            <div className="modal-footer">
-              {page === 2 && (
-                <button
-                  type="button"
-                  className="btn confirmSeatsModal__backButton"
-                  onClick={() => setPage(1)}
-                  disabled={isStartingPayment}
-                >
-                  Back
-                </button>
-              )}
-              {page === 1 ? (
-                <button
-                  type="button"
-                  className="btn confirmSeatsModal__paymentButton"
-                  onClick={() => setPage(2)}
-                >
-                  Continue
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn confirmSeatsModal__paymentButton"
-                  disabled={!customerName.trim() || !email || isStartingPayment}
-                  onClick={onConfirm}
-                >
-                  {isStartingPayment
-                    ? "Opening payment..."
-                    : "Continue to payment"}
-                </button>
-              )}
-            </div>
+            {page === 1 && renderBookingReview()}
+            {page === 2 && renderDetailsForm()}
+            {page === 3 && renderBookingConfirmation()}
           </div>
         </div>
       </div>

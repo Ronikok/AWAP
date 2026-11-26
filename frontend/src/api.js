@@ -62,7 +62,7 @@ export async function startCheckout({
   seatIds,
   customerName,
   email,
-  ticketCount,
+  ticketCounts,
 }) {
   return readJson(
     await fetch(`${API_ROOT}/checkout-sessions`, {
@@ -73,8 +73,19 @@ export async function startCheckout({
         seatIds,
         customerName,
         email,
-        ticketCount,
+        ticketCounts,
       }),
+    }),
+  );
+}
+
+export async function reserveSeats({ showtimeId, seatIds, ticketCounts }) {
+  return readJson(
+    await fetch(`${API_ROOT}/reservations/reserve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ showtimeId, seatIds, ticketCounts }),
     }),
   );
 }
